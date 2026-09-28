@@ -60,7 +60,7 @@ PACKAGES=(
   libreoffice-kf6 libnotify
 )
 
-ALL_STEPS=(packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings heal)
+ALL_STEPS=(packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings shortcuts heal)
 ROOT_STEPS=" packages lockscreen "
 
 # ---------------------------------------------------------------- helpers ---
@@ -348,6 +348,50 @@ PY
   fi
 }
 
+# App launchers: NAME|BINDING|COMMAND. Stored under their own dconf paths so a
+# user's existing custom shortcuts are never overwritten.
+LAUNCHERS=(
+  "Open Terminal|<Super>t|ptyxis"
+  "Open Files|<Super>e|nautilus --new-window"
+)
+
+step_shortcuts() {
+  say "Applying keyboard shortcuts…"
+  dconf load / < "$DATA/dconf/shortcuts.ini"
+  python3 - "${LAUNCHERS[@]}" <<'PY2'
+import ast, re, subprocess, sys
+
+BASE = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/"
+SCHEMA = "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding"
+
+def get(schema, key, path=None):
+    s = f"{schema}:{path}" if path else schema
+    out = subprocess.run(["gsettings", "get", s, key], capture_output=True, text=True).stdout.strip()
+    return ast.literal_eval(out.replace("@as ", "")) if out else ""
+
+def put(schema, key, value, path=None):
+    s = f"{schema}:{path}" if path else schema
+    subprocess.run(["gsettings", "set", s, key, value if isinstance(value, str) else str(value)], check=True)
+
+paths = get("org.gnome.settings-daemon.plugins.media-keys", "custom-keybindings") or []
+ours = []
+for spec in sys.argv[1:]:
+    name, binding, command = spec.split("|", 2)
+    path = BASE + "twilight-" + re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") + "/"
+    ours.append(path)
+    # Drop any other custom shortcut already using this key combination.
+    for p in list(paths):
+        if p not in ours and get(SCHEMA, "binding", p) == binding:
+            paths.remove(p)
+            subprocess.run(["dconf", "reset", "-f", p])
+    for key, val in (("name", name), ("command", command), ("binding", binding)):
+        subprocess.run(["gsettings", "set", f"{SCHEMA}:{path}", key, val], check=True)
+    if path not in paths:
+        paths.append(path)
+put("org.gnome.settings-daemon.plugins.media-keys", "custom-keybindings", paths)
+PY2
+}
+
 step_heal() {
   say "Installing the login-time self-repair service…"
   mkdir -p "$HOME/.config/systemd/user"
@@ -448,6 +492,13 @@ check() {
       *) bad "$e: $g" "update it in Extension Manager" ;;
     esac
   done
+
+  echo "${B}Keyboard shortcuts${N}"
+  t "Super+T opens a terminal"                   "$(run shortcuts)" bash -c "dconf dump /org/gnome/settings-daemon/plugins/media-keys/ | grep -A2 -B1 \"binding='<Super>t'\" | grep -q ptyxis"
+  t "Super+E opens Files"                        "$(run shortcuts)" bash -c "dconf dump /org/gnome/settings-daemon/plugins/media-keys/ | grep -A2 -B1 \"binding='<Super>e'\" | grep -q nautilus"
+  t "Super+Q closes windows"                     "$(run shortcuts)" bash -c "gsettings get org.gnome.desktop.wm.keybindings close | grep -q '<Super>q'"
+  t "Super+Ctrl+arrows switch workspace"         "$(run shortcuts)" bash -c "gsettings get org.gnome.desktop.wm.keybindings switch-to-workspace-left | grep -q '<Super><Control>Left'"
+  t "Super+M opens notifications"                "$(run shortcuts)" bash -c "gsettings get org.gnome.shell.keybindings toggle-message-tray | grep -q '<Super>m'"
 
   echo "${B}Self-repair${N}"
   t "twilight-heal.service enabled"              "$(run heal)" systemctl --user is-enabled twilight-heal.service

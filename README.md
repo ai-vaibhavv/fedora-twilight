@@ -19,6 +19,7 @@ one file.
 | **Lock & login screen** | WACK Sonoma-style lock screen with a handwritten date and glass password field, also shown on the GDM login screen |
 | **Icons & cursor** | Papirus Dark with violet folders, Catppuccin Mocha Lavender cursor |
 | **Shell extensions** | Dash to Dock, Just Perfection, Tiling Shell, Rounded Windows, Burn My Windows (glide), Clipboard Indicator, Caffeine, Weather O'Clock |
+| **Shortcuts** | `Super+T` terminal, `Super+E` Files, `Super+Q` close, `Super+V` clipboard, `Super+M` notifications, `Super+Ctrl+←/→` workspaces (add `Shift` to move the window), `Super+Shift+C` caffeine. Edit them in [`dconf/shortcuts.ini`](dconf/shortcuts.ini) |
 | **Fonts & sounds** | Inter, JetBrains Mono, Sacramento; a soft "Twilight" sound theme |
 | **Self-repair** | A small login service puts back anything an update undid |
 
@@ -47,7 +48,7 @@ Every colour lives in [`palette.conf`](palette.conf); edit it by hand to fine-tu
 then re-run `./install.sh`. You can also re-run single parts:
 
 ```bash
-./install.sh --list                  # packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings heal
+./install.sh --list                  # packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings shortcuts heal
 ./install.sh --only gtk,qt           # just re-colour the window buttons
 ./install.sh --no-sudo               # everything that doesn't need root
 ```
