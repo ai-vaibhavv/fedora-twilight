@@ -3,292 +3,49 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fedora Twilight: a dusk-coloured GNOME setup</title>
-<meta name="description" content="A soft purple, blue and pink GNOME theme for Fedora, installed with one command and recoloured from your own wallpaper.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Sacramento&display=swap" rel="stylesheet">
+<title>Fedora Twilight</title>
+<meta name="description" content="A soft purple, blue and pink GNOME setup for Fedora.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&family=Sacramento&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --base: #1E2030;
-    --surface: #2C2E45;
-    --surface-dim: #25273A;
-    --border: #434553;
-    --text: #F1EDF7;
-    --text-dim: #A6A3BD;
-    --subtext: #D8C7F5;
-    --accent: #B4A1E5;
-    --close: #EAA0BC;
-    --min: #F2B49C;
-    --max: #8EACED;
-    --radius: 18px;
-    color-scheme: dark;
-  }
+  :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
   body {
     margin: 0;
-    background: var(--base);
-    color: var(--text);
+    background: #1E2030;
+    color: #F1EDF7;
     font: 16px/1.6 Inter, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
   }
-  a { color: var(--subtext); }
-  a:hover { color: var(--close); }
-  code, pre { font-family: "JetBrains Mono", ui-monospace, monospace; }
-  .wrap { max-width: 1080px; margin: 0 auto; padding-inline: 24px; }
-
-  /* ---------- hero ---------- */
-  .hero {
-    position: relative;
-    overflow: hidden;
-    padding-block: 72px 96px;
-    background:
-      radial-gradient(ellipse 80% 60% at 85% 110%, #F4A7B9aa, transparent 60%),
-      radial-gradient(ellipse 70% 60% at 10% 100%, #B083D6aa, transparent 65%),
-      linear-gradient(180deg, #2E2F7A 0%, #4B45A8 40%, #7E5CB8 75%, #C98AB8 100%);
-  }
-  .hero::before { /* stars */
-    content: "";
-    position: absolute; inset: 0;
-    background-image:
-      radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent),
-      radial-gradient(1px 1px at 28% 8%, #fff, transparent),
-      radial-gradient(1.5px 1.5px at 47% 22%, #fff, transparent),
-      radial-gradient(1px 1px at 63% 12%, #fff, transparent),
-      radial-gradient(1.5px 1.5px at 78% 28%, #fff, transparent),
-      radial-gradient(1px 1px at 88% 6%, #fff, transparent),
-      radial-gradient(1px 1px at 36% 34%, #fff, transparent),
-      radial-gradient(1px 1px at 93% 40%, #fff, transparent);
-    opacity: .7;
-    pointer-events: none;
-  }
-  .hero .wrap { position: relative; }
-  .fake-bar {
-    display: flex; gap: 8px; justify-content: space-between; align-items: center;
-    margin-bottom: 56px; font-size: 13px; font-weight: 600;
-  }
-  .pill { background: #232634; border-radius: 999px; padding: 4px 14px; }
-  .fake-bar .right { display: flex; gap: 8px; }
-  .kicker { font-family: Sacramento, cursive; font-size: 44px; color: var(--close); line-height: 1; margin: 0; text-shadow: 0 2px 12px #12112066; }
-  h1 {
-    font-size: clamp(44px, 9vw, 96px);
-    font-weight: 300;
-    letter-spacing: -0.04em;
-    line-height: 1;
-    margin: 4px 0 20px;
-    text-shadow: 0 3px 20px #12112066;
-  }
-  .lede { max-width: 38em; font-size: 19px; color: #F7F3FCdd; margin: 0 0 32px; }
-  .install {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    background: #1E2030cc; border: 1px solid #B4A1E555; border-radius: 999px;
-    padding: 8px 8px 8px 22px; max-width: 100%; width: fit-content;
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 8px 32px #0f0e1c4d;
-  }
-  .install code { font-size: 14px; white-space: nowrap; overflow-x: auto; max-width: 70vw; }
-  button.copy {
-    font: 600 14px Inter, sans-serif; color: var(--base); background: var(--subtext);
-    border: 0; border-radius: 999px; padding: 8px 16px; cursor: pointer;
-  }
-  button.copy:hover { background: var(--close); }
-  .dots { display: inline-flex; gap: 7px; vertical-align: middle; }
-  .dot { width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 1px #ffffff38, 0 1px 2px #00000040; }
-  .dot.c { background: var(--close); } .dot.m { background: var(--min); } .dot.x { background: var(--max); }
-
-  /* ---------- sections ---------- */
-  section { padding-block: 72px 24px; }
-  h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; }
-  .sub { color: var(--text-dim); margin: 0 0 32px; max-width: 42em; }
-
-  .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
-  .sw { border-radius: 14px; overflow: hidden; background: var(--surface-dim); border: 1px solid #ffffff10; }
-  .sw i { display: block; height: 64px; }
-  .sw span { display: block; padding: 8px 12px; font-size: 13px; }
-  .sw code { color: var(--text-dim); font-size: 12px; }
-
-  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-  .shots figure.wide { grid-column: 1 / -1; }
-  figure { margin: 0; }
-  .frame {
-    border-radius: 14px; overflow: hidden; background: var(--surface-dim);
-    border: 1px solid #ffffff14; box-shadow: 0 12px 40px #0f0e1c66; aspect-ratio: 16 / 9;
-    display: grid; place-items: center;
-  }
-  .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .frame.missing::after { content: "screenshot coming soon"; color: var(--text-dim); font-size: 14px; }
-  .frame.missing img { display: none; }
-  figcaption { color: var(--text-dim); font-size: 14px; margin-top: 10px; }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
-  .card { background: var(--surface); border-radius: var(--radius); padding: 22px; border: 1px solid #ffffff0d; }
-  .card h3 { margin: 0 0 6px; font-size: 17px; }
-  .card p { margin: 0; color: var(--text-dim); font-size: 15px; }
-
-  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
-  ol.steps li { counter-increment: s; background: var(--surface); border-radius: var(--radius); padding: 22px 22px 22px 72px; position: relative; }
-  ol.steps li::before {
-    content: counter(s); position: absolute; left: 22px; top: 20px; width: 34px; height: 34px;
-    border-radius: 50%; display: grid; place-items: center; font-weight: 700;
-    background: var(--accent); color: var(--base);
-  }
-  ol.steps h3 { margin: 0 0 6px; font-size: 17px; }
-  ol.steps p { margin: 0 0 12px; color: var(--text-dim); }
+  main { max-width: 960px; margin: 0 auto; padding: 64px 20px 48px; }
+  .kicker { font-family: Sacramento, cursive; font-size: 40px; color: #EAA0BC; margin: 0; line-height: 1; }
+  h1 { font-size: clamp(40px, 8vw, 72px); font-weight: 300; letter-spacing: -0.04em; margin: 4px 0 12px; }
+  p { color: #A6A3BD; margin: 0 0 28px; }
+  img { width: 100%; display: block; border-radius: 14px; margin-bottom: 20px; box-shadow: 0 12px 40px #0f0e1c80; }
   pre {
-    margin: 0; background: var(--base); border: 1px solid var(--border); border-radius: 12px;
-    padding: 14px 16px; font-size: 13.5px; overflow-x: auto; color: var(--subtext);
+    background: #2C2E45; color: #D8C7F5; border-radius: 12px; padding: 16px 18px;
+    font: 14px/1.6 "JetBrains Mono", monospace; overflow-x: auto; margin: 28px 0;
   }
-  pre .c { color: var(--text-dim); }
-
-  details { background: var(--surface-dim); border-radius: 14px; padding: 14px 18px; margin-top: 12px; }
-  summary { cursor: pointer; font-weight: 600; }
-  details p, details ul { color: var(--text-dim); }
-
-  footer { padding-block: 64px 48px; color: var(--text-dim); font-size: 14px; border-top: 1px solid #ffffff10; margin-top: 64px; }
-  footer p { margin: 4px 0; }
-
-  @media (max-width: 560px) {
-    .hero { padding-block: 40px 64px; }
-    .fake-bar .right .pill:not(:last-child) { display: none; }
-    ol.steps li { padding-left: 22px; padding-top: 64px; }
-    .install { border-radius: 18px; }
-  }
+  a { color: #D8C7F5; }
+  footer { font-size: 14px; color: #A6A3BD; }
 </style>
 </head>
 <body>
+<main>
+  <p class="kicker">a quiet dusk for your desktop</p>
+  <h1>Fedora Twilight</h1>
+  <p>A soft purple, blue and pink GNOME setup. It installs with one command, survives updates, and can be recoloured from your own wallpaper.</p>
 
-<header class="hero">
-  <div class="wrap">
-    <div class="fake-bar" aria-hidden="true">
-      <span class="pill">Activities</span>
-      <span class="pill">Mon 28 Sep · 21:04</span>
-      <span class="right"><span class="pill">☾</span><span class="pill">⏻ ▾</span></span>
-    </div>
-    <p class="kicker">a quiet dusk for your desktop</p>
-    <h1>Fedora Twilight</h1>
-    <p class="lede">
-      A soft purple, blue and pink GNOME setup, from the top bar to the login screen.
-      You install it with one command and can recolour it from your own wallpaper.
-      Updates and reboots don't break it.
-      <span class="dots" aria-label="window buttons"><i class="dot c"></i><i class="dot m"></i><i class="dot x"></i></span>
-    </p>
-    <div class="install">
-      <code id="cmd">git clone https://github.com/ai-vaibhavv/fedora-twilight &amp;&amp; cd fedora-twilight &amp;&amp; ./install.sh</code>
-      <button class="copy" data-copy="cmd">Copy</button>
-    </div>
-  </div>
-</header>
+  <img src="screenshots/desktop.png" alt="Twilight desktop">
+  <img src="screenshots/lockscreen.png" alt="Twilight lock screen">
 
-<main class="wrap">
+  <pre>git clone https://github.com/ai-vaibhavv/fedora-twilight
+cd fedora-twilight
+./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg</pre>
 
-  <section id="look">
-    <h2>The look</h2>
-    <p class="sub">Every colour was picked from a single dusk illustration: the indigo sky, the lavender clouds and the pink horizon.</p>
-    <div class="shots">
-      <figure class="wide"><div class="frame"><img src="screenshots/desktop.png" alt="Twilight desktop with pill top bar and dock" loading="lazy"></div><figcaption>Desktop: transparent top bar with floating pills, auto-hiding dock</figcaption></figure>
-      <figure class="wide"><div class="frame"><img src="screenshots/lockscreen.png" alt="Lock screen with handwritten date and large clock" loading="lazy"></div><figcaption>Lock screen: handwritten date and a soft Inter clock</figcaption></figure>
-    </div>
-  </section>
-
-  <section id="palette">
-    <h2>The palette</h2>
-    <p class="sub">These colours all live in one file, <code>palette.conf</code>. Change them and re-run the installer to recolour every piece at once.</p>
-    <div class="palette" id="swatches"></div>
-  </section>
-
-  <section id="inside">
-    <h2>What's inside</h2>
-    <p class="sub">Most of it is well-known open-source projects, pinned to tested versions and tuned to work together.</p>
-    <div class="grid">
-      <div class="card"><h3>Colloid + Catppuccin</h3><p>GTK and Shell theme, with a transparent top bar made of floating pills.</p></div>
-      <div class="card"><h3>Pastel window buttons</h3><p>Close, minimise and maximise dots. The symbols appear on hover, and the buttons look the same in GTK 3, GTK 4 and Qt.</p></div>
-      <div class="card"><h3>Qt &amp; LibreOffice title bars</h3><p>A patched QAdwaitaColorfulDecorations, so Qt apps stop looking out of place.</p></div>
-      <div class="card"><h3>Lock &amp; login screen</h3><p>WACK Sonoma lock screen with an Inter clock and Sacramento date, also shown on GDM.</p></div>
-      <div class="card"><h3>Icons, cursor, fonts</h3><p>Papirus Dark with violet folders, Catppuccin Mocha Lavender cursor, Inter, and JetBrains Mono.</p></div>
-      <div class="card"><h3>Extensions</h3><p>Dash to Dock, Just Perfection, Tiling Shell, Rounded Windows, Burn My Windows, Clipboard Indicator, Caffeine, Weather O'Clock.</p></div>
-    </div>
-  </section>
-
-  <section id="install">
-    <h2>Make it yours</h2>
-    <p class="sub">Tested on Fedora Workstation 44 (GNOME 50). Takes about five minutes, most of it downloads.</p>
-    <ol class="steps">
-      <li>
-        <h3>Get the repo</h3>
-        <p>You need nothing but a fresh Fedora Workstation.</p>
-        <pre>git clone https://github.com/ai-vaibhavv/fedora-twilight
-cd fedora-twilight</pre>
-      </li>
-      <li>
-        <h3>Pull colours from your wallpaper <em style="font-weight:400;color:var(--text-dim)">(optional)</em></h3>
-        <p>Skip this to keep the original Twilight colours.</p>
-        <pre><span class="c"># preview the suggested palette in your terminal</span>
-./scripts/palette-from-wallpaper.py ~/Pictures/wall.jpg
-<span class="c"># happy? save it to palette.conf (you can still hand-edit it)</span>
-./scripts/palette-from-wallpaper.py ~/Pictures/wall.jpg --write</pre>
-      </li>
-      <li>
-        <h3>Install</h3>
-        <p>It asks for your password when it installs packages and the login-screen extension.</p>
-        <pre>./install.sh --wallpaper ~/Pictures/wall.jpg</pre>
-      </li>
-      <li>
-        <h3>Log out and back in</h3>
-        <p>That loads the Shell theme, the extensions, and the Qt settings. Done.</p>
-      </li>
-    </ol>
-    <details>
-      <summary>Re-running only some parts</summary>
-      <pre>./install.sh --list            <span class="c"># packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings heal</span>
-./install.sh --only gtk,qt     <span class="c"># e.g. after editing the button colours</span>
-./install.sh --no-sudo         <span class="c"># everything that doesn't need root</span></pre>
-    </details>
-  </section>
-
-  <section id="durable">
-    <h2>Built to survive updates</h2>
-    <p class="sub">Most desktop customisations quietly vanish after a <code>dnf upgrade</code>. This one was designed so it doesn't.</p>
-    <div class="grid">
-      <div class="card"><h3>Pinned upstreams</h3><p>Colloid, the Qt plugin, WACK and Rounded Windows are fetched at exact commits, so a reinstall next year looks the same.</p></div>
-      <div class="card"><h3>Layered, never patched</h3><p>Tweaks sit on top of the themes, in <code>~/.config/gtk-3.0</code> and marked blocks, instead of editing files that updates overwrite.</p></div>
-      <div class="card"><h3>Self-repair at login</h3><p><code>twilight-heal.service</code> rebuilds the Qt plugin after Qt updates and restores anything that was undone. It notifies you when something needs root.</p></div>
-      <div class="card"><h3>Hands off <code>/usr</code></h3><p>Nothing that dnf owns is modified, so updates and Twilight never fight over a file.</p></div>
-    </div>
-  </section>
-
+  <footer>
+    <a href="https://github.com/ai-vaibhavv/fedora-twilight">GitHub</a> ·
+    Wallpaper art by Rajie ·
+    Built on Colloid, Papirus, Catppuccin and WACK
+  </footer>
 </main>
-
-<footer>
-  <div class="wrap">
-    <p>Made by <a href="https://github.com/ai-vaibhavv">ai-vaibhavv</a> · <a href="https://github.com/ai-vaibhavv/fedora-twilight">Source on GitHub</a> · <a href="https://github.com/ai-vaibhavv/fedora-twilight/blob/main/JOURNEY.md">How it was built (and what didn't work)</a></p>
-    <p>Wallpaper artwork by Rajie; it is not included, so please support the artist. Built on <a href="https://github.com/vinceliuice/Colloid-gtk-theme">Colloid</a>, <a href="https://github.com/acd407/QAdwaitaColorfulDecorations">QAdwaitaColorfulDecorations</a>, <a href="https://github.com/rinzler69-wastaken/wack-sonoma-lockscreen">WACK</a>, <a href="https://github.com/PapirusDevelopmentTeam/papirus-icon-theme">Papirus</a> and <a href="https://github.com/catppuccin/cursors">Catppuccin</a>.</p>
-  </div>
-</footer>
-
-<script>
-  const palette = [
-    ["Base", "#1E2030"], ["Surface", "#2C2E45"], ["Border", "#434553"],
-    ["Text", "#F1EDF7"], ["Subtext", "#D8C7F5"], ["Accent", "#B4A1E5"],
-    ["Close", "#EAA0BC"], ["Minimise", "#F2B49C"], ["Maximise", "#8EACED"],
-    ["Panel pill", "#232634"],
-  ];
-  document.getElementById("swatches").innerHTML = palette.map(([n, c]) =>
-    `<div class="sw"><i style="background:${c}"></i><span>${n}<br><code>${c}</code></span></div>`).join("");
-
-  document.querySelectorAll(".frame img").forEach(img => {
-    const miss = () => img.parentElement.classList.add("missing");
-    if (img.complete && !img.naturalWidth) miss();
-    img.addEventListener("error", miss);
-  });
-
-  document.querySelectorAll("button.copy").forEach(b => b.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent);
-      b.textContent = "Copied";
-    } catch { b.textContent = "Select & copy"; }
-    setTimeout(() => (b.textContent = "Copy"), 1600);
-  }));
-</script>
 </body>
 </html>
