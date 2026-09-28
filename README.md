@@ -8,6 +8,8 @@ one file.
 
 ![Desktop](docs/screenshots/desktop.png)
 
+![Lock screen](docs/screenshots/lockscreen.png)
+
 ## What you get
 
 | Piece | What it does |
