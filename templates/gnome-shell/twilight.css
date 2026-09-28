@@ -1,0 +1,74 @@
+/* ===== TWILIGHT TOP BAR =====
+ * Appended to a copy of Colloid's gnome-shell.css. Later rules with equal
+ * specificity win, so this survives Colloid upstream changes far better than
+ * a line-based patch.
+ *
+ * Effect: transparent top bar with each indicator drawn as a floating pill.
+ */
+
+#panel {
+  background-color: transparent;
+  height: 40px;
+}
+
+#panel .panel-button {
+  border: 4px solid transparent;
+  box-shadow: inset 0 0 0 1000px {{PANEL_PILL}};
+}
+
+#panel .panel-button.clock-display {
+  box-shadow: none;
+}
+
+#panel .panel-button.clock-display .clock {
+  border: 4px solid transparent;
+  box-shadow: inset 0 0 0 1000px {{PANEL_PILL}};
+}
+
+#panel .panel-button:hover,
+#panel .panel-button:hover.clock-display .clock {
+  box-shadow: inset 0 0 0 1000px {{PANEL_HOVER}};
+}
+
+#panel .panel-button:hover.clock-display {
+  box-shadow: none;
+}
+
+#panel .panel-button:active, #panel .panel-button:active:hover,
+#panel .panel-button:overview, #panel .panel-button:overview:hover,
+#panel .panel-button:focus, #panel .panel-button:focus:hover,
+#panel .panel-button:checked, #panel .panel-button:checked:hover,
+#panel .panel-button:active.clock-display .clock,
+#panel .panel-button:overview.clock-display .clock,
+#panel .panel-button:focus.clock-display .clock,
+#panel .panel-button:checked.clock-display .clock {
+  box-shadow: inset 0 0 0 1000px {{PANEL_ACTIVE}};
+}
+
+#panel .panel-button:active.clock-display,
+#panel .panel-button:overview.clock-display,
+#panel .panel-button:focus.clock-display,
+#panel .panel-button:checked.clock-display {
+  box-shadow: none;
+}
+
+/* Overview, lock and login screens: faint glass pills instead of solid ones */
+#panel:overview .panel-button,
+#panel.unlock-screen .panel-button,
+#panel.login-screen .panel-button,
+#panel.lock-screen .panel-button,
+#panel:overview .panel-button.clock-display .clock,
+#panel.unlock-screen .panel-button.clock-display .clock,
+#panel.login-screen .panel-button.clock-display .clock,
+#panel.lock-screen .panel-button.clock-display .clock {
+  box-shadow: inset 0 0 0 1000px rgba({{TEXT_RGB}}, 0.06);
+}
+
+#panel:overview .panel-button.clock-display,
+#panel.unlock-screen .panel-button.clock-display,
+#panel.login-screen .panel-button.clock-display,
+#panel.lock-screen .panel-button.clock-display {
+  box-shadow: none;
+}
+
+/* ===== END TWILIGHT TOP BAR ===== */

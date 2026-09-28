@@ -1,0 +1,10 @@
+Snapshot date: 2026-09-28T22:49:53+02:00
+
+Fedora release 44 (Forty Four)
+
+GNOME Shell 50.5
+
+qt6-qtbase-6.11.2-2.fc44.x86_64
+qt6-qtwayland-6.11.2-1.fc44.x86_64
+libreoffice-core-26.2.6.3-1.fc44.x86_64
+libreoffice-kf6-26.2.6.3-1.fc44.x86_64

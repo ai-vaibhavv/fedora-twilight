@@ -1,0 +1,42 @@
+
+/* === TWILIGHT GDM CLOCK START === */
+
+/* Same handwritten date as the lock screen */
+.wack-gdm-clock-wrapper .wack-date {
+    font-family: 'Sacramento' !important;
+    font-size: 38px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0px !important;
+    color: rgba({{CLOSE_RGB}}, 0.98) !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-shadow: 0 2px 12px rgba(18, 17, 32, 0.42) !important;
+}
+
+/* Same time as the lock screen */
+.wack-gdm-clock-wrapper .wack-time {
+    font-family: 'Inter' !important;
+    font-size: 112px !important;
+    font-weight: 300 !important;
+    letter-spacing: -4px !important;
+    color: rgba({{TEXT_BRIGHT_RGB}}, 0.97) !important;
+    text-shadow: 0 3px 20px rgba(18, 17, 32, 0.42) !important;
+}
+
+/* Tone down WACK's bright white click-glow on GDM */
+.wack-gdm-clock-wrapper .wack-clock-glow-date {
+    color: rgba({{CLOSE_RGB}}, 0.92) !important;
+    text-shadow:
+        0 0 14px rgba({{CLOSE_RGB}}, 0.36),
+        0 0 28px rgba({{ACCENT_RGB}}, 0.20) !important;
+}
+
+.wack-gdm-clock-wrapper .wack-clock-glow-time {
+    color: rgba({{TEXT_BRIGHT_RGB}}, 0.94) !important;
+    text-shadow:
+        0 0 16px rgba({{ACCENT_RGB}}, 0.34),
+        0 0 30px rgba({{ACCENT_RGB}}, 0.18) !important;
+}
+
+/* === TWILIGHT GDM CLOCK END === */

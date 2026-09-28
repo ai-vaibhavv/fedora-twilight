@@ -1,0 +1,85 @@
+/* ===== TWILIGHT BUTTONS (GTK 4 / libadwaita) ===== */
+
+windowcontrols {
+  border-spacing: 7px;
+}
+
+/* Outer button stays invisible; it only keeps a comfortable click target */
+windowcontrols > button.close:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque),
+windowcontrols > button.minimize:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque),
+windowcontrols > button.maximize:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque),
+windowcontrols > button.restore:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 4px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+/* The visible circles */
+windowcontrols > button.close:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.minimize:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.maximize:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.restore:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  min-width: 11px;
+  min-height: 11px;
+  padding: 0;
+  border-radius: 100%;
+  background-image: none;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+  color: transparent; /* glyph hidden until hover */
+  opacity: 1;
+}
+
+windowcontrols > button.close:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: {{CLOSE}};
+}
+
+windowcontrols > button.minimize:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: {{MINIMIZE}};
+}
+
+windowcontrols > button.maximize:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.restore:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: {{MAXIMIZE}};
+}
+
+/* Hover: reveal the symbol */
+windowcontrols > button.close:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.minimize:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.maximize:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.restore:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  color: {{BASE}};
+}
+
+/* Pressed */
+windowcontrols > button.close:active:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: shade({{CLOSE}}, 0.9);
+  color: {{BASE}};
+}
+
+windowcontrols > button.minimize:active:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: shade({{MINIMIZE}}, 0.9);
+  color: {{BASE}};
+}
+
+windowcontrols > button.maximize:active:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.restore:active:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: shade({{MAXIMIZE}}, 0.9);
+  color: {{BASE}};
+}
+
+/* Unfocused windows: muted but still coloured */
+windowcontrols > button.close:backdrop:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.minimize:backdrop:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.maximize:backdrop:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+windowcontrols > button.restore:backdrop:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  opacity: 0.55;
+}
+
+/* ===== END TWILIGHT BUTTONS ===== */

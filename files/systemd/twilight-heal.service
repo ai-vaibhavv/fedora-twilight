@@ -1,0 +1,12 @@
+[Unit]
+Description=Twilight: repair theme pieces that updates may have undone
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/twilight/install.sh --heal
+Nice=10
+
+[Install]
+WantedBy=graphical-session.target

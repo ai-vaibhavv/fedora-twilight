@@ -1,0 +1,12 @@
+[Icon Theme]
+Name=Twilight Controls
+Comment=Twilight window-control overrides
+Inherits=Papirus-Twilight,Papirus-Dark,hicolor
+Directories=scalable/actions
+
+[scalable/actions]
+Size=16
+MinSize=8
+MaxSize=64
+Type=Scalable
+Context=Actions

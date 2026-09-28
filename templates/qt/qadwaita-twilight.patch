@@ -1,0 +1,115 @@
+diff --git a/src/qadwaitadecorations.cpp b/src/qadwaitadecorations.cpp
+index f0aadee..4e9309c 100644
+--- a/src/qadwaitadecorations.cpp
++++ b/src/qadwaitadecorations.cpp
+@@ -565,10 +565,18 @@ void QAdwaitaDecorations::paint(QPaintDevice *device)
+ 
+     const QRect surfaceRect = windowContentGeometry();
+ 
+-    const QColor borderColor = active ? makeTransparent(m_colors[Border], 0.5)
+-                                      : makeTransparent(m_colors[BorderInactive], 0.5);
+-    const QColor backgroundColor = active ? m_colors[Background] : m_colors[BackgroundInactive];
+-    const QColor foregroundColor = active ? m_colors[Foreground] : m_colors[ForegroundInactive];
++    // Twilight decoration palette
++    const QColor borderColor =
++            active ? makeTransparent(QColor("{{BORDER}}"), 0.55)
++                   : makeTransparent(QColor("{{BORDER_DIM}}"), 0.45);
++
++    const QColor backgroundColor =
++            active ? QColor("{{SURFACE}}")
++                   : QColor("{{SURFACE_DIM}}");
++
++    const QColor foregroundColor =
++            active ? QColor("{{TEXT}}")
++                   : QColor("{{TEXT_DIM}}");
+ 
+     QPainter p(device);
+     p.setRenderHint(QPainter::Antialiasing);
+@@ -792,31 +800,73 @@ void QAdwaitaDecorations::paintButton(Button button, QPainter *painter)
+     const Qt::WindowStates windowStates = window()->windowStates();
+     const bool active = window()->handle()->isActive();
+ #endif
++
+     const bool maximized = windowStates & Qt::WindowMaximized;
+ 
+-    QColor activeBackgroundColor;
+-    if (m_clicking == button)
+-        activeBackgroundColor = m_colors[PressedButtonBackground];
+-    else if (m_hoveredButtons.testFlag(button))
+-        activeBackgroundColor = m_colors[HoveredButtonBackground];
++    /*
++     * Twilight controls
++     *
++     * Minimize = Peach
++     * Maximize = Blue
++     * Close    = Pink
++     */
++    QColor buttonBackgroundColor;
++
++    if (button == Minimize)
++        buttonBackgroundColor = QColor("{{MINIMIZE}}");
++    else if (button == Maximize)
++        buttonBackgroundColor = QColor("{{MAXIMIZE}}");
++    else if (button == Close)
++        buttonBackgroundColor = QColor("{{CLOSE}}");
+     else
+-        activeBackgroundColor = m_colors[ButtonBackground];
++        buttonBackgroundColor = QColor("{{BORDER}}");
+ 
+-    const QColor buttonBackgroundColor =
+-            active ? activeBackgroundColor : m_colors[ButtonBackgroundInactive];
+-    const QColor foregroundColor = active ? m_colors[Foreground] : m_colors[ForegroundInactive];
++    const bool hovered = m_hoveredButtons.testFlag(button);
++    const bool pressed = m_clicking == button;
++
++    if (!active) {
++        buttonBackgroundColor = buttonBackgroundColor.darker(122);
++    } else if (pressed) {
++        buttonBackgroundColor = buttonBackgroundColor.darker(112);
++    } else if (hovered) {
++        buttonBackgroundColor = buttonBackgroundColor.lighter(108);
++    }
+ 
+     const QRect btnRect = buttonRect(button).toRect();
+-    renderFlatRoundedButtonFrame(button, painter, btnRect, buttonBackgroundColor);
++
++    renderFlatRoundedButtonFrame(
++            button,
++            painter,
++            btnRect,
++            buttonBackgroundColor);
++
++    /*
++     * macOS-style behaviour:
++     * no symbol normally, reveal symbol on hover/press.
++     */
++    if (!hovered && !pressed)
++        return;
+ 
+     QRect adjustedBtnRect = btnRect;
+     adjustedBtnRect.setSize(QSize(16, 16));
+     adjustedBtnRect.translate(4, 4);
+-    const QString svgIcon = m_icons[iconFromButtonAndState(button, maximized)];
++
++    const QColor foregroundColor("{{BASE}}");
++
++    const QString svgIcon =
++            m_icons[iconFromButtonAndState(button, maximized)];
++
+     if (!svgIcon.isEmpty())
+-        renderButtonIcon(svgIcon, painter, adjustedBtnRect, foregroundColor);
+-    else // Fallback to use QIcon
+-        renderButtonIcon(iconFromButtonAndState(button, maximized), painter, adjustedBtnRect);
++        renderButtonIcon(
++                svgIcon,
++                painter,
++                adjustedBtnRect,
++                foregroundColor);
++    else
++        renderButtonIcon(
++                iconFromButtonAndState(button, maximized),
++                painter,
++                adjustedBtnRect);
+ }
+ 
+ bool QAdwaitaDecorations::clickButton(Qt::MouseButtons b, Button btn)

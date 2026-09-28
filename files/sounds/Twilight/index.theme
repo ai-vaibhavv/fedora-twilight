@@ -1,0 +1,8 @@
+[Sound Theme]
+Name=Twilight
+Comment=Soft sounds for the Twilight desktop
+Inherits=freedesktop
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo
