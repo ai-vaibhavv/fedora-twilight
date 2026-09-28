@@ -5,6 +5,7 @@
 #   ./install.sh --wallpaper FILE      also set FILE as desktop wallpaper
 #   ./install.sh --only gtk,qt         run selected steps only
 #   ./install.sh --no-sudo             skip steps that need root
+#   ./install.sh --check               verify every piece is installed and active
 #   ./install.sh --heal                quiet self-repair (run at every login)
 #   ./install.sh --list                show steps
 #
@@ -395,17 +396,84 @@ heal() {
   fi
 }
 
+# ------------------------------------------------------------------ checking ---
+
+# Read-only report of every piece. Exit code = number of failures.
+check() {
+  local fails=0 g e
+  ok()   { printf '  %s✓%s %s\n' "$P" "$N" "$1"; }
+  bad()  { printf '  %s✗%s %s\n' "$R" "$N" "$1"; [[ -n ${2:-} ]] && printf '      → %s\n' "$2"; fails=$((fails+1)); }
+  t()    { local desc=$1 fix=$2; shift 2; if "$@" >/dev/null 2>&1; then ok "$desc"; else bad "$desc" "$fix"; fi; }
+  gs()   { [[ "$(gsettings get "$1" "$2" 2>/dev/null)" == "'$3'" ]]; }
+  run()  { echo "$DATA/install.sh --only $1"; }
+
+  echo "${B}Theme${N}"
+  t "Theme $THEME_NAME built"                    "$(run theme)" test -f "$HOME/.themes/$THEME_NAME/index.theme"
+  t "Top-bar pills in Shell theme"               "$(run theme)" has_block "$HOME/.themes/$THEME_NAME/gnome-shell/gnome-shell.css"
+  t "GTK 3 window buttons"                       "$(run gtk)"   has_block "$HOME/.config/gtk-3.0/gtk.css"
+  t "GTK 4 / libadwaita window buttons"          "$(run gtk)"   has_block "$HOME/.config/gtk-4.0/gtk.css"
+  t "GTK theme selected"                         "$(run settings)" gs org.gnome.desktop.interface gtk-theme "$THEME_NAME"
+  t "Shell theme selected"                       "$(run settings)" gs org.gnome.shell.extensions.user-theme name "$THEME_NAME"
+
+  echo "${B}Icons, cursor, fonts, sounds${N}"
+  t "Papirus-Twilight folders"                   "$(run icons)"  test -f "$HOME/.local/share/icons/Papirus-Twilight/scalable/places/folder.svg"
+  t "Twilight-Controls icon theme selected"      "$(run settings)" gs org.gnome.desktop.interface icon-theme Twilight-Controls
+  t "Cursor $CURSOR installed"                   "$(run cursor)" bash -c "[[ -d '$HOME/.local/share/icons/$CURSOR' || -d '$HOME/.icons/$CURSOR' ]]"
+  t "Cursor selected"                            "$(run settings)" gs org.gnome.desktop.interface cursor-theme "$CURSOR"
+  t "Inter font"                                 "$(run packages)" bash -c "fc-list | grep -q 'Inter'"
+  t "Sacramento font (user)"                     "$(run fonts)" bash -c "fc-list | grep -q Sacramento"
+  t "Sacramento font (system, for login screen)" "$(run fonts)" test -f /usr/local/share/fonts/Twilight/Sacramento-Regular.ttf
+  t "Twilight sound theme"                       "$(run sounds)" test -f "$HOME/.local/share/sounds/Twilight/index.theme"
+
+  echo "${B}Qt & LibreOffice title bars${N}"
+  t "Qt decoration plugin built"                 "$(run qt)" test -f "$HOME/.local/lib/qt6/plugins/wayland-decoration-client/libqadwaitadecorations.so"
+  t "Plugin matches installed Qt"                "$(run qt)" bash -c "[[ \"\$(rpm -q qt6-qtbase qt6-qtwayland)\" == \"\$(cat '$STATE/qt-built-against')\" ]]"
+  t "Qt environment file"                        "$(run qt)" test -f "$HOME/.config/environment.d/90-twilight-qt.conf"
+  t "Qt environment active in this session"      "log out and back in" bash -c "systemctl --user show-environment | grep -q '^QT_WAYLAND_DECORATION=adwaita-colorful'"
+
+  echo "${B}Lock & login screen${N}"
+  local w="/usr/share/gnome-shell/extensions/$WACK_UUID"
+  t "WACK lock screen installed"                 "$(run lockscreen)" test -f "$w/metadata.json"
+  t "Twilight lock-screen styling"               "$(run lockscreen)" has_block "$w/stylesheet.css"
+  t "Twilight login-screen styling"              "$(run lockscreen)" has_block "$w/src/pro/gdm.css"
+  t "Enabled on the login screen (GDM)"          "$(run lockscreen)" grep -q "$WACK_UUID" /etc/dconf/db/gdm.d/99-wack-lockscreen
+
+  echo "${B}Extensions (GNOME $(shell_major))${N}"
+  for e in "${DNF_EXTENSIONS[@]}" "${EGO_EXTENSIONS[@]}" "$ROUNDED_UUID" "$WACK_UUID"; do
+    g=$(gnome-extensions info "$e" 2>/dev/null | awk -F': ' '/State/{print $2}')
+    case $g in
+      ACTIVE) ok "$e" ;;
+      INITIALIZED|INACTIVE) if [[ $e == "$WACK_UUID" ]]; then ok "$e (only runs on the lock/login screen)"; else bad "$e: $g" "log out and back in"; fi ;;
+      "") bad "$e: not installed" "$(run extensions)" ;;
+      *) bad "$e: $g" "update it in Extension Manager" ;;
+    esac
+  done
+
+  echo "${B}Self-repair${N}"
+  t "twilight-heal.service enabled"              "$(run heal)" systemctl --user is-enabled twilight-heal.service
+  if [[ -z "$(systemctl --user show -p ExecMainStartTimestamp --value twilight-heal.service)" ]]; then
+    ok "Not run yet (first run at your next login)"
+  else
+    t "Last login run succeeded"                 "journalctl --user -u twilight-heal" bash -c "[[ \"\$(systemctl --user show -p Result --value twilight-heal.service)\" == success ]]"
+  fi
+
+  echo
+  if ((fails)); then echo "${Y}$fails problem(s) found.${N}"; else echo "${P}${B}Everything is in place.${N}"; fi
+  return "$fails"
+}
+
 # --------------------------------------------------------------------- main ---
 
-ONLY="" NO_SUDO=false WALLPAPER=""
+ONLY="" NO_SUDO=false WALLPAPER="" CHECK=false
 while (($#)); do
   case $1 in
     --only) ONLY=$2; shift ;;
     --no-sudo) NO_SUDO=true ;;
     --wallpaper) WALLPAPER=$(readlink -f "$2"); shift ;;
     --heal) HEAL=true ;;
+    --check) CHECK=true ;;
     --list) printf '%s\n' "${ALL_STEPS[@]}"; exit 0 ;;
-    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "Unknown option: $1 (see --help)" ;;
   esac
   shift
@@ -424,6 +492,7 @@ fi
 source "$DATA/palette.conf"
 
 if $HEAL; then heal; exit 0; fi
+if $CHECK; then check; exit $?; fi
 
 steps=("${ALL_STEPS[@]}")
 [[ -n $ONLY ]] && IFS=',' read -ra steps <<<"$ONLY"

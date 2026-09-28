@@ -52,6 +52,25 @@ then re-run `./install.sh`. You can also re-run single parts:
 ./install.sh --no-sudo               # everything that doesn't need root
 ```
 
+## Verify
+
+```bash
+./install.sh --check
+```
+
+Prints a ✓/✗ line for every piece (theme, buttons, Qt plugin, fonts, lock/login screen,
+extensions, self-repair) and tells you the exact command that fixes each ✗.
+
+To test a clean install without touching your desktop, use a throwaway home folder
+(this skips the steps that need root or a running session):
+
+```bash
+HOME=$(mktemp -d) ./install.sh --no-sudo --only theme,icons,cursor,sounds,qt
+```
+
+For the full reinstall test, install Fedora Workstation in a GNOME Boxes VM, clone the repo
+there, run `./install.sh`, log out and back in, then run `./install.sh --check`.
+
 ## Why it won't break after updates
 
 Most "rice" guides edit files that the next update overwrites. Twilight avoids that:
