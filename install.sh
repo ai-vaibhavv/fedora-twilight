@@ -358,6 +358,7 @@ step_settings() {
   dconf load / < "$BUILD/dconf.ini"
   gsettings set org.gnome.shell.extensions.burn-my-windows active-profile \
     "$HOME/.config/burn-my-windows/profiles/twilight-glide.conf" 2>/dev/null || true
+  step_settings_ptyxis
 
   local want=(background-logo@fedorahosted.org "${DNF_EXTENSIONS[@]}" "${EGO_EXTENSIONS[@]}" "$ROUNDED_UUID" "$WACK_UUID")
   python3 - "${want[@]}" <<'PY'
@@ -378,6 +379,24 @@ PY
     gsettings set org.gnome.desktop.background picture-uri-dark "$uri"
     gsettings set org.gnome.desktop.screensaver picture-uri "$uri"
   fi
+}
+
+# Ptyxis: Twilight palette, slight transparency and line spacing on the
+# default profile. Profiles live under their UUID, so find (or create) it.
+step_settings_ptyxis() {
+  gsettings list-schemas | grep -x org.gnome.Ptyxis >/dev/null || return 0
+  render "$DATA/templates/ptyxis/twilight.palette" "$HOME/.local/share/org.gnome.Ptyxis/palettes/twilight.palette"
+  local uuid profile
+  uuid=$(gsettings get org.gnome.Ptyxis default-profile-uuid | tr -d "'")
+  if [[ -z $uuid ]]; then
+    uuid=$(python3 -c 'import uuid; print(uuid.uuid4().hex)')
+    gsettings set org.gnome.Ptyxis profile-uuids "['$uuid']"
+    gsettings set org.gnome.Ptyxis default-profile-uuid "$uuid"
+  fi
+  profile="org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/$uuid/"
+  gsettings set "$profile" palette twilight
+  gsettings set "$profile" opacity 0.94
+  gsettings set "$profile" cell-height-scale 1.1
 }
 
 # App launchers: NAME|BINDING|COMMAND. Stored under their own dconf paths so a
@@ -532,6 +551,10 @@ PYMATCH
   t "Sacramento font (user)"                     "$(run fonts)" bash -c "fc-list | grep -q Sacramento"
   t "Sacramento font (system, for login screen)" "$(run fonts)" test -f /usr/local/share/fonts/Twilight/Sacramento-Regular.ttf
   t "Twilight sound theme"                       "$(run sounds)" test -f "$HOME/.local/share/sounds/Twilight/index.theme"
+  if gsettings list-schemas | grep -x org.gnome.Ptyxis >/dev/null; then
+    t "Ptyxis palette matches active palette"     "$(run settings)" matches_palette "$REPO/templates/ptyxis/twilight.palette" "$HOME/.local/share/org.gnome.Ptyxis/palettes/twilight.palette"
+    t "Ptyxis uses the Twilight palette"          "$(run settings)" bash -c "gsettings get org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/\$(gsettings get org.gnome.Ptyxis default-profile-uuid | tr -d \"'\")/ palette | grep -q twilight"
+  fi
 
   echo "${B}Qt & LibreOffice title bars${N}"
   t "Qt decoration plugin built"                 "$(run qt)" test -f "$HOME/.local/lib/qt6/plugins/wayland-decoration-client/libqadwaitadecorations.so"
