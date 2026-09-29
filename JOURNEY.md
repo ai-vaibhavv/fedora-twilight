@@ -13,6 +13,8 @@ left on disk. It's here so nobody (including future me) repeats the dead ends.
 | GTK 4 / libadwaita | Colloid's GTK 4 CSS copied to `~/.config/gtk-4.0` plus the button block |
 | Qt apps | [QAdwaitaColorfulDecorations](https://github.com/acd407/QAdwaitaColorfulDecorations) patched to draw the same pastel buttons and a `#2C2E45` title bar, loaded through `QT_WAYLAND_DECORATION=adwaita-colorful` |
 | LibreOffice | Forced onto its Qt 6 UI (`SAL_USE_VCLPLUGIN=qt6`) so it gets the Qt title bar above |
+| Brave | Appearance → Theme: GTK; Chromium draws the GTK 4 buttons itself |
+| Terminal | Ptyxis + Bash with a `twilight` palette, 94 % opacity, 1.1 line height |
 | Icons | Papirus Dark + a tiny `Papirus-Twilight` theme holding only violet folders; `Twilight-Controls` on top for a cleaner minimise glyph |
 | Cursor | Catppuccin Mocha Lavender |
 | Lock screen | WACK Sonoma lockscreen: Inter clock nudged to the right (`factor 0.76`), handwritten Sacramento date in dusty pink, glass password pill, softer blur |
@@ -30,14 +32,20 @@ left on disk. It's here so nobody (including future me) repeats the dead ends.
 - **Patching VS Code's bundled CSS** under `/usr/share/code/…` to get the pastel buttons.
   It worked, but every VS Code update overwrites those files (it has already been undone
   on this machine). Not worth it; VS Code uses its own title bar.
-- **Discord / Brave native decorations** (`--enable-features=WaylandWindowDecorations`,
-  `--use-system-title-bar`). Electron/Chromium apps draw their own controls; results were
-  inconsistent, so they were left as-is.
+- **Discord / Brave decoration flags** (`--enable-features=WaylandWindowDecorations`,
+  `--use-system-title-bar`). Results were inconsistent. Discord stays stock; Brave got
+  the buttons through its GTK theme mode instead.
 - **Desktop Widgets (azclock) and Lockscreen Studio**. Earlier attempts at a desktop clock and
   a lock-screen restyle; superseded by WACK.
-- **Blur My Shell**. Installed but not used with the transparent-pill top bar.
+- **Blur My Shell**. Removed; the look is meant to stay sharp.
+- **LibreOffice on GTK 3 (CSS recolouring) and GTK 4** (white toolbar strip), then stock
+  Qt 6 decorations (dark buttons), before the patched Qt plugin.
+- **Kitty / Fastfetch / Starship / Zsh**, named workspaces and a power-profile helper.
 - **Editing Colloid's files in `~/.themes` directly**. Any theme rebuild would silently lose
   the edits. Now layered via `~/.config/gtk-3.0/gtk.css` and marker blocks.
+
+The full list, with exact commands and reasons, is in
+[FAILED_EXPERIMENTS.md](FAILED_EXPERIMENTS.md).
 
 ## Bugs found while packaging this
 
@@ -77,3 +85,7 @@ LibreOffice launchers from the first manual setup (`~/.local/bin/libreoffice-twi
 and copies of its `.desktop` files) were retired: the session-wide
 `environment.d` file already gives LibreOffice the Qt 6 title bar, and the copies
 would have hidden updates to the system launchers.
+
+The Ptyxis palette and profile settings (opacity, line height) existed only on the
+live machine; the `settings` step now installs them, with the background, text and
+cursor rendered from the active palette.

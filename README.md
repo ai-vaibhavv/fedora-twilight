@@ -17,6 +17,7 @@ it survives system updates, and it can recolour itself to match your wallpaper.
 - **Icons and cursor**: Papirus Dark with matching folders, Catppuccin cursor
 - **Extensions**: Dash to Dock, Just Perfection, Tiling Shell, Rounded Windows,
   Burn My Windows, Clipboard Indicator, Caffeine, Weather O'Clock
+- **Terminal**: Ptyxis with a matching palette and light transparency
 - **Fonts and sounds**: Inter, JetBrains Mono, Sacramento and a soft sound theme
 - **Wallpaper colours**: builds the whole palette from any image
 - **Self-repair**: a login service restores anything an update removed
@@ -129,7 +130,12 @@ shortcuts on the same keys are kept.
 python3 -m unittest discover -s tests -v
 ```
 
-The build history, including what didn't work, is in [JOURNEY.md](JOURNEY.md).
+More detail:
+
+- [CURRENT_STATE.md](CURRENT_STATE.md): the known-good desktop, piece by piece
+- [DECISIONS.md](DECISIONS.md): why things are the way they are
+- [FAILED_EXPERIMENTS.md](FAILED_EXPERIMENTS.md): approaches that were tried and dropped
+- [JOURNEY.md](JOURNEY.md): how it was built
 
 ## Credits
 
