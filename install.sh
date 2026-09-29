@@ -122,9 +122,15 @@ shell_major() { gnome-shell --version | grep -oE '[0-9]+' | head -1; }
 
 # -------------------------------------------------------------------- steps ---
 
+packages_missing() { ! rpm -q "${PACKAGES[@]}" >/dev/null 2>&1; }
+
 step_packages() {
-  say "Installing packages (dnf)…"
-  sudo dnf install -y "${PACKAGES[@]}"
+  if packages_missing; then
+    say "Installing packages (dnf)…"
+    sudo dnf install -y "${PACKAGES[@]}"
+  else
+    say "All packages already installed."
+  fi
   if command -v flatpak >/dev/null; then
     flatpak install -y --noninteractive flathub com.mattjakeman.ExtensionManager || true
   fi
@@ -297,9 +303,15 @@ step_qt() {
   render "$DATA/templates/qt/qadwaita-twilight.patch" "$BUILD/qadwaita-twilight.patch"
   git -C "$SRC/QAdwaitaColorfulDecorations" apply "$BUILD/qadwaita-twilight.patch"
   local b="$SRC/QAdwaitaColorfulDecorations/build"
-  cmake -S "$SRC/QAdwaitaColorfulDecorations" -B "$b" -G Ninja \
-        -DUSE_QT6=ON -DHAS_QT6_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release -DQT_NO_PRIVATE_MODULE_WARNING=ON >/dev/null
-  cmake --build "$b" >/dev/null
+  # Ninja reports compiler errors on stdout, so keep the output and show its
+  # end on failure instead of discarding it.
+  local log="$BUILD/qt-build.log"
+  if ! { cmake -S "$SRC/QAdwaitaColorfulDecorations" -B "$b" -G Ninja \
+           -DUSE_QT6=ON -DHAS_QT6_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release -DQT_NO_PRIVATE_MODULE_WARNING=ON &&
+         cmake --build "$b"; } >"$log" 2>&1; then
+    tail -n 25 "$log" >&2
+    die "Qt plugin build failed; full log: $log"
+  fi
   local so; so=$(find "$b" -name 'libqadwaitadecorations.so' | head -1)
   [[ -n $so ]] || die "Qt plugin build produced no libqadwaitadecorations.so"
   install -Dm755 "$so" "$HOME/.local/lib/qt6/plugins/wayland-decoration-client/libqadwaitadecorations.so"
@@ -679,6 +691,21 @@ if $CHECK; then
 fi
 
 if ! $HEAL; then
+  # sudo can only ask for a password on a terminal. Find out now, before
+  # anything changes, rather than halfway through the steps.
+  needs_sudo=false
+  if ! $NO_SUDO; then
+    for s in "${steps[@]}"; do
+      case $s in
+        lockscreen) needs_sudo=true ;;
+        packages) if packages_missing; then needs_sudo=true; fi ;;
+        fonts) [[ -f /usr/local/share/fonts/Twilight/Sacramento-Regular.ttf ]] || needs_sudo=true ;;
+      esac
+    done
+  fi
+  if $needs_sudo && ! sudo -n true 2>/dev/null && [[ ! -t 0 ]]; then
+    die "Some steps need sudo, but there is no terminal to ask for the password. Run this in a terminal window, or add --no-sudo."
+  fi
   for cmd in python3 rsync; do
     command -v "$cmd" >/dev/null || die "Missing $cmd. Install prerequisites: sudo dnf install git python3 python3-pillow rsync"
   done
@@ -740,10 +767,10 @@ if $HEAL; then heal; exit 0; fi
 # but does not stop the independent steps after it.
 failed=() index=0
 for s in "${steps[@]}"; do
-  if $NO_SUDO && [[ $ROOT_STEPS == *" $s "* ]]; then
-    warn "Skipping '$s' (needs sudo)"; continue
-  fi
   index=$((index + 1))
+  if $NO_SUDO && [[ $ROOT_STEPS == *" $s "* ]]; then
+    warn "[$index/${#steps[@]}] $s skipped (needs sudo)"; continue
+  fi
   say "[$index/${#steps[@]}] $s"
   # The parent must not treat the subshell's exit as a new error, and the
   # subshell must not run in a condition, which would disable set -e inside it.
@@ -753,8 +780,10 @@ for s in "${steps[@]}"; do
   set -e; trap trace ERR
   if ((rc)); then
     failed+=("$s")
+    if [[ $s == packages ]]; then
+      warn "Step 'packages' failed (exit $rc); every later step needs it, so stopping."; break
+    fi
     warn "Step '$s' failed (exit $rc); continuing with the remaining steps."
-    [[ $s != packages ]] || { warn "Every later step needs these packages; stopping."; break; }
   fi
 done
 

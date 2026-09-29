@@ -43,6 +43,18 @@ class FailureIsolationTests(unittest.TestCase):
             self.assertIn('--keep-palette --only fonts', result.stderr)
             self.assertTrue((home / '.local/share/sounds/Twilight').is_dir())
 
+    @unittest.skipIf(subprocess.run(['sudo', '-n', 'true'], capture_output=True).returncode == 0,
+                     'sudo credentials are cached')
+    def test_sudo_without_a_terminal_stops_before_changing_anything(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, home, shims, env = sandbox(Path(tmp))
+            shutil.copy(repo / 'palette.conf', repo / '.twilight/palette.conf')
+            result = subprocess.run(['bash', str(repo / 'install.sh'), '--only', 'lockscreen'],
+                                    capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('no terminal to ask for the password', result.stderr)
+            self.assertFalse((repo / '.twilight/backups').exists())
+
 
 class PaletteSelectionTests(unittest.TestCase):
     def test_partial_run_keeps_a_wallpaper_palette(self):
