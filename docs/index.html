@@ -19,14 +19,19 @@
   main { max-width: 960px; margin: 0 auto; padding: 64px 20px 48px; }
   .kicker { font-family: Sacramento, cursive; font-size: 40px; color: #EAA0BC; margin: 0; line-height: 1; }
   h1 { font-size: clamp(40px, 8vw, 72px); font-weight: 300; letter-spacing: -0.04em; margin: 4px 0 12px; }
+  h2 { font-size: 22px; font-weight: 600; margin: 48px 0 12px; }
   p { color: #A6A3BD; margin: 0 0 28px; }
   img { width: 100%; display: block; border-radius: 14px; margin-bottom: 20px; box-shadow: 0 12px 40px #0f0e1c80; }
+  ul { color: #A6A3BD; padding-left: 20px; margin: 0; }
+  li { margin-bottom: 6px; }
+  li strong { color: #F1EDF7; font-weight: 600; }
   pre {
     background: #2C2E45; color: #D8C7F5; border-radius: 12px; padding: 16px 18px;
-    font: 14px/1.6 "JetBrains Mono", monospace; overflow-x: auto; margin: 28px 0;
+    font: 14px/1.6 "JetBrains Mono", monospace; overflow-x: auto; margin: 0 0 16px;
   }
+  pre .c { color: #8A87A3; }
   a { color: #D8C7F5; }
-  footer { font-size: 14px; color: #A6A3BD; }
+  footer { font-size: 14px; color: #A6A3BD; margin-top: 48px; }
 </style>
 </head>
 <body>
@@ -38,11 +43,36 @@
   <img src="screenshots/desktop.png" alt="Twilight desktop">
   <img src="screenshots/lockscreen.png" alt="Twilight lock screen">
 
+  <h2>Features</h2>
+  <ul>
+    <li><strong>Top bar</strong>: transparent, with floating pill indicators</li>
+    <li><strong>Window buttons</strong>: coloured circles in GTK, Qt and LibreOffice apps</li>
+    <li><strong>Lock and login screen</strong>: large clock with a handwritten date</li>
+    <li><strong>Icons, cursor, fonts and sounds</strong> that match</li>
+    <li><strong>Wallpaper colours</strong>: the whole palette from any image</li>
+    <li><strong>Self-repair</strong>: puts back anything a system update removes</li>
+  </ul>
+
+  <h2>Install</h2>
+  <p>Fedora Workstation 44 with GNOME 50. Run in a terminal, then log out and back in.</p>
   <pre>sudo dnf install git python3 python3-pillow rsync
 git clone https://github.com/ai-vaibhavv/fedora-twilight
 cd fedora-twilight
-./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg --auto-palette</pre>
-  <p>Add <code>--dry-run</code> to preview installation. Run in your GNOME terminal, then log out and back in. Configuration backups are saved before installation. Changing the wallpaper in Settings does not automatically recolour Twilight; rerun with <code>--auto-palette</code>.</p>
+./install.sh</pre>
+
+  <h2>Usage</h2>
+  <pre><span class="c"># Match the colours to your wallpaper</span>
+./install.sh --wallpaper ~/Pictures/wall.jpg --auto-palette
+
+<span class="c"># Preview without changing anything</span>
+./install.sh --dry-run
+
+<span class="c"># Run only some parts</span>
+./install.sh --only gtk,qt
+
+<span class="c"># Check that everything works</span>
+./install.sh --check</pre>
+  <p>More options and details are in the <a href="https://github.com/ai-vaibhavv/fedora-twilight#readme">README</a>.</p>
 
   <footer>
     <a href="https://github.com/ai-vaibhavv/fedora-twilight">GitHub</a> ·

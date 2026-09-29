@@ -1,8 +1,7 @@
 # Fedora Twilight
 
-A soft purple / blue / pink GNOME setup for Fedora, built around a dusk wallpaper,
-and reproducible with one command. Recolour it for **your** wallpaper by changing
-one file.
+A soft purple, blue and pink GNOME setup for Fedora. One command installs it,
+it survives system updates, and it can recolour itself to match your wallpaper.
 
 **Website:** https://ai-vaibhavv.github.io/fedora-twilight/
 
@@ -10,167 +9,139 @@ one file.
 
 ![Lock screen](docs/screenshots/lockscreen.png)
 
-## What you get
+## Features
 
-| Piece | What it does |
-| --- | --- |
-| **Colloid (Catppuccin) + Twilight top bar** | Transparent top bar with floating "pill" indicators |
-| **Macaron window buttons** | Pink close, peach minimise, blue maximise; the symbol shows on hover. Works in GTK 3, GTK 4/libadwaita **and Qt/LibreOffice** |
-| **Lock & login screen** | WACK Sonoma-style lock screen with a handwritten date and glass password field, also shown on the GDM login screen |
-| **Icons & cursor** | Papirus Dark with violet folders, Catppuccin Mocha Lavender cursor |
-| **Shell extensions** | Dash to Dock, Just Perfection, Tiling Shell, Rounded Windows, Burn My Windows (glide), Clipboard Indicator, Caffeine, Weather O'Clock |
-| **Shortcuts** | `Super+T` terminal, `Super+E` Files, `Super+Q` close, `Super+V` clipboard, `Super+M` notifications, `Super+Ctrl+←/→` workspaces (add `Shift` to move the window), `Super+Shift+C` caffeine. Edit them in [`dconf/shortcuts.ini`](dconf/shortcuts.ini) |
-| **Fonts & sounds** | Inter, JetBrains Mono, Sacramento; a soft "Twilight" sound theme |
-| **Self-repair** | A small login service puts back anything an update undid |
+- **Top bar**: transparent, with floating "pill" indicators (Colloid + Catppuccin)
+- **Window buttons**: coloured circles in GTK 3, GTK 4, Qt and LibreOffice apps
+- **Lock and login screen**: WACK Sonoma-style clock with a handwritten date
+- **Icons and cursor**: Papirus Dark with matching folders, Catppuccin cursor
+- **Extensions**: Dash to Dock, Just Perfection, Tiling Shell, Rounded Windows,
+  Burn My Windows, Clipboard Indicator, Caffeine, Weather O'Clock
+- **Fonts and sounds**: Inter, JetBrains Mono, Sacramento and a soft sound theme
+- **Wallpaper colours**: builds the whole palette from any image
+- **Self-repair**: a login service restores anything an update removed
+
+## Requirements
+
+Fedora Workstation 44 with GNOME 50, a network connection and sudo access.
 
 ## Install
-
-Fedora Workstation 44 (GNOME 50) was used to build and test this.
 
 ```bash
 sudo dnf install git python3 python3-pillow rsync
 git clone https://github.com/ai-vaibhavv/fedora-twilight.git
 cd fedora-twilight
-./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg --auto-palette --dry-run
-./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg --auto-palette
+./install.sh
 ```
 
-Run from a terminal in your GNOME session, as your normal user. The first command
-previews the steps without changing anything; the second installs. It needs network
-access and asks for sudo for packages, system fonts and the login-screen extension.
-Log out and back in, then run `./install.sh --check`.
+Run it from a terminal in your GNOME session as your normal user, then log out
+and back in.
 
-The installer changes appearance settings and, in the shortcuts step, built-in key
-bindings. Conflicting custom launcher shortcuts are preserved. Use `--only` to
-choose components; `--no-sudo` skips packages and login-screen installation (required
-packages must already be installed).
-
-### Make it yours
-
-Use `--wallpaper FILE --auto-palette` to extract colours and install in one command.
-Omit `--auto-palette` to use the repository's `palette.conf` instead. Generating during
-installation saves the palette in `.twilight/palette.conf`; it does not
-edit the checkout. Repeat the same command for a new wallpaper. Re-running from the
-checkout without `--auto-palette` restores the checkout's palette. Use
-`--keep-palette` for partial reinstalls that should keep your generated colours.
-
-Changing the wallpaper in GNOME Settings alone **does not recolour Twilight**.
-There is no background watcher. Colours apply to Twilight's custom surfaces,
-controls and lock-screen styles; Colloid, folder icons and GNOME accents use the
-nearest available named variant. The cursor stays lavender, the theme stays dark,
-and apps with their own styling may not follow it. The clock position remains a
-manual `LOCK_CLOCK_X` setting; colour extraction cannot detect the wallpaper subject.
-
-To preview colours or save a palette for manual editing:
+## Usage
 
 ```bash
-./scripts/palette-from-wallpaper.py ~/Pictures/your-wallpaper.jpg           # preview
-./scripts/palette-from-wallpaper.py ~/Pictures/your-wallpaper.jpg --write   # save to palette.conf
-./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg
-```
+# Default purple palette
+./install.sh
 
-Every colour lives in [`palette.conf`](palette.conf); edit it by hand to fine-tune,
-then re-run `./install.sh`. You can also re-run single parts:
+# Match the colours to your wallpaper
+./install.sh --wallpaper ~/Pictures/wall.jpg --auto-palette
 
-```bash
-./install.sh --list                  # packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings shortcuts heal
-./install.sh --keep-palette --only gtk,qt # reapply current window-button colours
-./install.sh --no-sudo               # everything that doesn't need root
-```
+# Set the wallpaper but keep the current colours
+./install.sh --wallpaper ~/Pictures/wall.jpg --keep-palette
 
-### Where files live
+# Preview what would run, without changing anything
+./install.sh --dry-run
 
-All upstream checkouts, builds, downloads, temporary build files, state, generated
-palettes and backups stay in the ignored `.twilight/` directory inside this repo.
-GNOME still loads installed assets from `~/.themes`, `~/.config` and `~/.local`;
-the login extension and system fonts require system installation. Those are
-installation destinations, not build directories. The repair service runs the
-installer from this checkout: **keep the repo in place**. After moving it, run
-`./install.sh --keep-palette --only heal` to update the service path.
-Older installations may still have a previous workspace at
-`~/.local/share/twilight`; this installer no longer builds there.
+# Run only some parts (list them with --list)
+./install.sh --only gtk,qt
 
-### Backups and recovery
+# Skip everything that needs sudo
+./install.sh --no-sudo
 
-Before installation, user GTK configuration, Twilight's environment and service
-files, Burn My Windows configuration, the installed palette and a dconf snapshot
-are saved under `.twilight/backups/<timestamp>-<pid>/`.
-This is a configuration backup, **not a complete uninstall or a backup of system
-packages/GDM**. Keep the printed path. To recover a particular file, copy its
-matching backup back into your home directory. Stop self-repair before recovering:
-
-```bash
-systemctl --user disable --now twilight-heal.service
-```
-
-The `dconf.ini` snapshot contains all your dconf preferences. Inspect it first;
-`dconf load / < /path/to/backup/dconf.ini` restores saved keys but also overwrites
-later preference changes and does not remove newly added keys. Full automatic
-rollback, including GDM, is not implemented.
-
-## Verify
-
-```bash
+# Check that every piece is installed and working
 ./install.sh --check
 ```
 
-Compares rendered Shell/GTK/lock/login colours with the active palette and
-prints a ✓/✗ line for every piece (theme, buttons, Qt plugin, fonts, lock/login screen,
-extensions, self-repair) and tells you the exact command that fixes each ✗.
+Steps: `packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings shortcuts heal`
 
-For local checks that do not change the desktop:
+### Custom colours
+
+Every colour is in [`palette.conf`](palette.conf). Edit it and run `./install.sh`.
+
+To start from a wallpaper instead:
+
+```bash
+./scripts/palette-from-wallpaper.py ~/Pictures/wall.jpg           # preview
+./scripts/palette-from-wallpaper.py ~/Pictures/wall.jpg --write   # save to palette.conf
+```
+
+Changing the wallpaper in GNOME Settings does not recolour Twilight; run the
+installer again with `--auto-palette`.
+
+### Keyboard shortcuts
+
+| Keys | Action |
+| --- | --- |
+| `Super+T` | Terminal |
+| `Super+E` | Files |
+| `Super+Q` | Close window |
+| `Super+V` | Clipboard |
+| `Super+M` | Notifications |
+| `Super+Ctrl+←/→` | Switch workspace (add `Shift` to move the window) |
+| `Super+Shift+C` | Caffeine |
+
+Change them in [`dconf/shortcuts.ini`](dconf/shortcuts.ini). Existing custom
+shortcuts on the same keys are kept.
+
+## Supported apps
+
+| Apps | Coloured buttons |
+| --- | --- |
+| GTK 3 and GTK 4 apps (Files, Terminal, Settings, …) | Yes |
+| Flatpak apps | Yes |
+| Brave and Chromium (Appearance → Theme: GTK) | Yes; restart after recolouring |
+| Qt 6 apps and LibreOffice | Yes |
+| VS Code | With `"window.titleBarStyle": "native"` |
+| Discord, other Electron apps, X11-only apps | No |
+
+## How it survives updates
+
+- Upstream projects are pinned to tested commits.
+- Changes are layered on top of themes, between `fedora-twilight` markers, so they
+  can be reapplied at any time.
+- Nothing owned by a Fedora package is modified.
+- `twilight-heal.service` runs at login, rebuilds the Qt plugin after Qt updates,
+  restores missing styles and notifies you about anything that needs attention.
+
+## Files and backups
+
+- Builds, downloads, generated palettes and backups live in `.twilight/` inside
+  this repo. Keep the repo in place; the repair service runs from it.
+- Each install backs up your GTK config, Twilight files and a dconf snapshot to
+  `.twilight/backups/` (the ten newest are kept).
+- If a step fails, the installer shows where, finishes the other steps and prints
+  the command that reruns only the failed ones.
+
+## Development
 
 ```bash
 ./install.sh --dry-run
 python3 -m unittest discover -s tests -v
 ```
 
-For the full reinstall test, install Fedora Workstation in a GNOME Boxes VM, clone the repo
-there, run `./install.sh`, log out and back in, then run `./install.sh --check`.
-
-## Update resilience and limitations
-
-Most "rice" guides edit files that the next update overwrites. Twilight avoids that:
-
-- **Upstream projects are pinned** (exact commits of Colloid, QAdwaitaColorfulDecorations,
-  WACK lockscreen, Rounded Windows), to reduce upstream drift. Fedora packages and extension-store downloads still change;
-  new GNOME/Qt releases require testing.
-- **Edits are layered, not patched in place.** GTK 3 buttons live in `~/.config/gtk-3.0/gtk.css`,
-  which GTK applies on top of *any* theme. The Shell and GTK 4 tweaks are appended between
-  `/* >>> fedora-twilight >>> */` markers, which the installer can re-apply any number of times.
-- **Nothing in `/usr` that dnf owns is modified.** The login-screen extension lives in a
-  directory no package owns, and fonts go in `/usr/local`.
-- **`twilight-heal.service`** runs at every login and:
-  - rebuilds the Qt title-bar plugin when `qt6-qtbase`/`qt6-qtwayland` update (the plugin uses
-    Qt private APIs and must match the exact Qt build);
-  - restores the theme or GTK button styles if something replaced them;
-  - notifies you if the login-screen styling is gone or an extension stopped working after a
-    GNOME upgrade.
-
-  Check it with `journalctl --user -u twilight-heal`.
-
-## Reinstalling Fedora
-
-1. Install Fedora Workstation, enable RPM Fusion if you use it.
-2. `git clone` this repo and run `./install.sh --wallpaper …`.
-3. Optional: reinstall your apps with `sudo dnf install $(cat packages/dnf-all.txt)` and
-   `flatpak install $(cat packages/flatpak.txt)`.
-
-## Heads-up for the next Fedora release
-
-The WACK lock screen currently declares support up to GNOME 50. When Fedora moves to
-GNOME 51, the lock screen falls back to GNOME's default until WACK publishes an update;
-bump `WACK_REF` in `install.sh` then and re-run `./install.sh --only lockscreen`. Your login still
-works in the meantime. The heal service will tell you when this happens.
+The build history, including what didn't work, is in [JOURNEY.md](JOURNEY.md).
 
 ## Credits
 
-- Wallpaper: illustration by **Rajie** (signed on the artwork); not redistributed here, please support the artist.
-- [Colloid GTK theme](https://github.com/vinceliuice/Colloid-gtk-theme) by vinceliuice (GPL-3.0)
+- Wallpaper: illustration by **Rajie** (not redistributed here; please support the artist)
+- [Colloid GTK theme](https://github.com/vinceliuice/Colloid-gtk-theme) (GPL-3.0)
 - [QAdwaitaColorfulDecorations](https://github.com/acd407/QAdwaitaColorfulDecorations) (LGPL-2.1)
-- [WACK Sonoma Lockscreen](https://github.com/rinzler69-wastaken/wack-sonoma-lockscreen) by rinzler69-wastaken
-- [Rounded Windows](https://github.com/Nathanaelrc/rounded-windows), [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme),
-  [Catppuccin cursors](https://github.com/catppuccin/cursors), [Sacramento](https://fonts.google.com/specimen/Sacramento) (OFL)
-- The build history, including what didn't work, is in [JOURNEY.md](JOURNEY.md).
+- [WACK Sonoma Lockscreen](https://github.com/rinzler69-wastaken/wack-sonoma-lockscreen)
+- [Rounded Windows](https://github.com/Nathanaelrc/rounded-windows),
+  [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme),
+  [Catppuccin cursors](https://github.com/catppuccin/cursors),
+  [Sacramento](https://fonts.google.com/specimen/Sacramento) (OFL)
+
+## License
 
 Scripts and templates in this repository: MIT.
