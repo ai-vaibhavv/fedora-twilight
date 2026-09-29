@@ -9,6 +9,7 @@
 #   ./install.sh --only gtk,qt         run selected steps only
 #   ./install.sh --no-sudo             skip steps that need root
 #   ./install.sh --check               verify every piece is installed and active
+#   ./install.sh --uninstall           remove Twilight (backs up first; --dry-run previews)
 #   ./install.sh --heal                quiet self-repair (run at every login)
 #   ./install.sh --list                show steps
 #
@@ -474,6 +475,113 @@ PYUNIT
   systemctl --user enable twilight-heal.service >/dev/null 2>&1 || true
 }
 
+# ---------------------------------------------------------------- uninstall ---
+
+# remove PATH...: delete what exists and say so.
+remove() {
+  local p
+  for p; do
+    [[ -e $p || -L $p ]] || continue
+    rm -rf -- "$p"; say "  removed ${p/#$HOME/\~}"
+  done
+}
+
+# strip_blocks FILE: drop every fedora-twilight marker block (Twilight's and the
+# managed Colloid copy), keep the rest, and delete FILE if nothing else is left.
+strip_blocks() {
+  local file=$1 tmp
+  [[ -f $file ]] || return 0
+  tmp=$(mktemp)
+  awk '/^\/\* >>> .*fedora-twilight.* >>> \*\/$/{skip=1;next} /^\/\* <<< .*fedora-twilight.* <<< \*\/$/{skip=0;next} !skip' "$file" > "$tmp"
+  if grep -q '[^[:space:]]' "$tmp"; then
+    cat "$tmp" > "$file"; say "  cleaned ${file/#$HOME/\~} (your own CSS kept)"
+  else
+    rm -f "$file"; say "  removed ${file/#$HOME/\~}"
+  fi
+  rm -f "$tmp"
+}
+
+# ini_keys FILE: print /dconf/path/key for every key in a dconf ini file.
+ini_keys() {
+  awk '/^\[/{sub(/^\[/,"");sub(/\].*$/,"");s=$0;next} /^[A-Za-z0-9-]+=/{split($0,a,"=");print "/" s "/" a[1]}' "$1"
+}
+
+uninstall() {
+  say "Stopping the self-repair service…"
+  systemctl --user disable --now twilight-heal.service >/dev/null 2>&1 || true
+  remove "$HOME/.config/systemd/user/twilight-heal.service"
+  systemctl --user daemon-reload 2>/dev/null || true
+
+  say "Resetting the GNOME settings Twilight changed to their defaults…"
+  if command -v dconf >/dev/null; then
+    local key uuid
+    while read -r key; do dconf reset "$key"; done < <(ini_keys "$DATA/dconf/twilight.ini"; ini_keys "$DATA/dconf/shortcuts.ini")
+    dconf reset /org/gnome/shell/extensions/burn-my-windows/active-profile
+    uuid=$(gsettings get org.gnome.Ptyxis default-profile-uuid 2>/dev/null | tr -d "'" || true)
+    if [[ -n $uuid ]]; then
+      for key in palette opacity cell-height-scale; do dconf reset "/org/gnome/Ptyxis/Profiles/$uuid/$key"; done
+    fi
+    local bg; bg=$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null || true)
+    if [[ $bg == *"/backgrounds/twilight-"* ]]; then
+      dconf reset /org/gnome/desktop/background/picture-uri
+      dconf reset /org/gnome/desktop/background/picture-uri-dark
+      dconf reset /org/gnome/desktop/screensaver/picture-uri
+    fi
+    # Launchers and the extensions only Twilight installs; everything else in
+    # these lists belongs to the user.
+    python3 - "$ROUNDED_UUID" "$WACK_UUID" <<'PYU'
+import ast, subprocess, sys
+def get(schema, key):
+    out = subprocess.run(["gsettings", "get", schema, key], capture_output=True, text=True).stdout
+    return ast.literal_eval(out.replace("@as ", "").strip() or "[]")
+mk = "org.gnome.settings-daemon.plugins.media-keys"
+paths = get(mk, "custom-keybindings")
+for p in [p for p in paths if "/custom-keybindings/twilight-" in p]:
+    subprocess.run(["dconf", "reset", "-f", p], check=True)
+    paths.remove(p)
+subprocess.run(["gsettings", "set", mk, "custom-keybindings", str(paths)], check=True)
+ext = [u for u in get("org.gnome.shell", "enabled-extensions") if u not in sys.argv[1:]]
+subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(ext)], check=True)
+PYU
+  fi
+
+  say "Removing Twilight files from your home folder…"
+  strip_blocks "$HOME/.config/gtk-3.0/gtk.css"
+  if grep -qF 'colloid (managed by fedora-twilight)' "$HOME/.config/gtk-4.0/gtk.css" 2>/dev/null; then
+    remove "$HOME/.config/gtk-4.0/assets"
+  fi
+  strip_blocks "$HOME/.config/gtk-4.0/gtk.css"
+  remove "$HOME/.themes/$THEME_NAME" \
+         "$HOME/.local/share/icons/Papirus-Twilight" "$HOME/.local/share/icons/Twilight-Controls" \
+         "$HOME/.local/share/fonts/Twilight" "$HOME/.local/share/sounds/Twilight" \
+         "$HOME/.local/lib/qt6/plugins/wayland-decoration-client/libqadwaitadecorations.so" \
+         "$HOME/.config/environment.d/90-twilight-qt.conf" \
+         "$HOME/.config/burn-my-windows/profiles/twilight-glide.conf" \
+         "$HOME/.local/share/org.gnome.Ptyxis/palettes/twilight.palette" \
+         "$HOME/.local/share/gnome-shell/extensions/$ROUNDED_UUID" \
+         "$HOME/.local/share/backgrounds"/twilight-*
+  fc-cache -f "$HOME/.local/share/fonts" >/dev/null 2>&1 || true
+  rm -f "$STATE/qt-built-against" "$STATE/lockscreen-built-against"
+
+  if $NO_SUDO; then
+    warn "Skipped the lock screen and system font (--no-sudo); rerun without it to remove them."
+  else
+    say "Removing the WACK lock screen and system font (sudo)…"
+    local p
+    for p in "/usr/share/gnome-shell/extensions/$WACK_UUID" /etc/dconf/db/gdm.d/99-wack-lockscreen /usr/local/share/fonts/Twilight; do
+      [[ -e $p ]] || continue
+      sudo rm -rf -- "$p"; say "  removed $p"
+    done
+    sudo dconf update
+    sudo fc-cache -f /usr/local/share/fonts >/dev/null 2>&1 || true
+  fi
+
+  say "Left in place (they may predate Twilight): packages from packages/, the extensions"
+  say "  ${EGO_EXTENSIONS[*]},"
+  say "  the Catppuccin cursor and the Flatpak read access to ~/.config/gtk-3.0 and gtk-4.0."
+  say "Done. Log out and back in to finish. Your settings from before are in $backup/dconf.ini."
+}
+
 # ------------------------------------------------------------------ healing ---
 
 # Runs at every login. Never asks for a password; only rebuilds user-level
@@ -623,9 +731,24 @@ PYMATCH
   return "$fails"
 }
 
+# backup_user_config: snapshot user configuration into a new $backup folder.
+backup_user_config() {
+  backup="$WORK/backups/$(date +%Y%m%d-%H%M%S)-$$"
+  mkdir -p "$backup"
+  chmod 700 "$backup"
+  local item
+  for item in .config/gtk-3.0 .config/gtk-4.0 .config/environment.d/90-twilight-qt.conf .config/burn-my-windows .config/systemd/user/twilight-heal.service .local/share/twilight/palette.conf; do
+    if [[ -e $HOME/$item || -L $HOME/$item ]]; then
+      mkdir -p "$backup/$(dirname "$item")"
+      cp -a "$HOME/$item" "$backup/$item"
+    fi
+  done
+  if command -v dconf >/dev/null; then dconf dump / > "$backup/dconf.ini"; fi
+}
+
 # --------------------------------------------------------------------- main ---
 
-ONLY="" NO_SUDO=false WALLPAPER="" CHECK=false AUTO_PALETTE=false DRY_RUN=false KEEP_PALETTE=false
+ONLY="" NO_SUDO=false WALLPAPER="" CHECK=false UNINSTALL=false AUTO_PALETTE=false DRY_RUN=false KEEP_PALETTE=false
 while (($#)); do
   case $1 in
     --only|--wallpaper)
@@ -638,6 +761,7 @@ while (($#)); do
     --no-sudo) NO_SUDO=true ;;
     --heal) HEAL=true ;;
     --check) CHECK=true ;;
+    --uninstall) UNINSTALL=true ;;
     --list) printf '%s\n' "${ALL_STEPS[@]}"; exit 0 ;;
     -h|--help) sed -n '2,/^set -/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
     *) die "Unknown option: $1 (see --help)" ;;
@@ -665,6 +789,29 @@ fi
 if $CHECK || $HEAL; then
   [[ -z $ONLY && -z $WALLPAPER && $AUTO_PALETTE == false && $DRY_RUN == false ]] || die "Use --check or --heal on its own (optionally --no-sudo)."
   [[ $CHECK != true || $HEAL != true ]] || die "Use --check or --heal, not both."
+fi
+
+if $UNINSTALL; then
+  [[ -z $ONLY && -z $WALLPAPER && $AUTO_PALETTE == false && $KEEP_PALETTE == false && $CHECK == false && $HEAL == false ]] ||
+    die "Use --uninstall on its own (optionally --dry-run or --no-sudo)."
+  say "Twilight removal plan"
+  say "  stop and remove the self-repair service"
+  say "  reset the GNOME settings and shortcuts Twilight sets (dconf/*.ini) to defaults"
+  say "  remove Twilight's CSS blocks, theme, icons, fonts, sounds, Qt plugin and Ptyxis palette"
+  if $NO_SUDO; then say "  lock screen and system font — skipped (--no-sudo)"
+  else say "  remove the WACK lock screen and system font (sudo)"; fi
+  say "Your GTK files and full dconf settings are backed up to .twilight/backups/ first."
+  $DRY_RUN && exit 0
+  [[ $EUID -ne 0 ]] || die "Run as your normal user; the script calls sudo when it needs to."
+  if ! $NO_SUDO && ! sudo -n true 2>/dev/null && [[ ! -t 0 ]]; then
+    die "Removing the lock screen needs sudo, but there is no terminal to ask for the password. Run this in a terminal window, or add --no-sudo."
+  fi
+  mkdir -p "$STATE"
+  backup_user_config
+  say "User configuration backup: $backup"
+  trap trace ERR
+  uninstall
+  exit 0
 fi
 
 if ! $HEAL && ! $CHECK; then
@@ -717,16 +864,7 @@ if ! $HEAL; then
     command -v dconf >/dev/null && command -v gsettings >/dev/null || die "Run this from a GNOME desktop with dconf and gsettings installed."
     gsettings get org.gnome.desktop.interface gtk-theme >/dev/null || die "Cannot read GNOME settings. Run from your desktop terminal."
   fi
-  backup="$WORK/backups/$(date +%Y%m%d-%H%M%S)-$$"
-  mkdir -p "$backup"
-  chmod 700 "$backup"
-  for item in .config/gtk-3.0 .config/gtk-4.0 .config/environment.d/90-twilight-qt.conf .config/burn-my-windows .config/systemd/user/twilight-heal.service .local/share/twilight/palette.conf; do
-    if [[ -e $HOME/$item || -L $HOME/$item ]]; then
-      mkdir -p "$backup/$(dirname "$item")"
-      cp -a "$HOME/$item" "$backup/$item"
-    fi
-  done
-  if command -v dconf >/dev/null; then dconf dump / > "$backup/dconf.ini"; fi
+  backup_user_config
   say "User configuration backup: $backup (see README for recovery; not a full uninstall)."
 fi
 

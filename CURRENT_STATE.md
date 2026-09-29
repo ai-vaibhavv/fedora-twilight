@@ -142,6 +142,8 @@ Print                         Screenshot                  (GNOME default)
 - Each install backs up GTK config, Twilight files and a dconf dump to
   `.twilight/backups/` (ten newest kept).
 - `twilight-heal.service` runs `install.sh --heal` at login.
+- `install.sh --uninstall` removes Twilight (it backs up first). The old locations
+  listed below are not touched.
 - Older, pre-repository locations still on this machine and no longer used:
   `~/.local/share/theme-sources/`, `~/.local/share/desktop-backups/`,
   `~/.local/share/twilight/`.

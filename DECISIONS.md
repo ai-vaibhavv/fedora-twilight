@@ -151,7 +151,8 @@ How each part is covered:
 | Update repair | `twilight-heal.service` → `./install.sh --heal` |
 | Qt rebuild | heal service, after `qt6-qtbase` / `qt6-qtwayland` updates |
 | Snapshot | automatic backup in `.twilight/backups/` before each install |
-| Restore | manual, from those backups (see README); no automatic rollback yet |
+| Remove | `./install.sh --uninstall` (backs up first; leaves packages, EGO extensions and cursor) |
+| Restore | `dconf load / < .twilight/backups/<dir>/dconf.ini` for earlier settings |
 | Package lists | `packages/` |
 | Settings | `dconf/twilight.ini`, `dconf/shortcuts.ini` |
 | Theme patches | `templates/` |

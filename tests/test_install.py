@@ -98,5 +98,44 @@ class PaletteSelectionTests(unittest.TestCase):
             self.assertNotIn('20200101-000000-1', kept)
 
 
+class UninstallTests(unittest.TestCase):
+    def test_uninstall_removes_twilight_and_keeps_user_css(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, home, shims, env = sandbox(Path(tmp))
+            shutil.copy(repo / 'palette.conf', repo / '.twilight/palette.conf')
+            # Never touch the real session's settings or services.
+            log = Path(tmp) / 'calls.log'
+            for cmd in ('dconf', 'gsettings', 'systemctl'):
+                (shims / cmd).write_text(f'#!/bin/sh\necho "{cmd} $*" >> "{log}"\n')
+                (shims / cmd).chmod(0o755)
+            self.assertEqual(install(repo, env, '--only', 'sounds,gtk').returncode, 0)
+            gtk3 = home / '.config/gtk-3.0/gtk.css'
+            gtk3.write_text('window { margin: 1px; }\n' + gtk3.read_text())
+            self.assertTrue((home / '.local/share/sounds/Twilight').is_dir())
+
+            dry = install(repo, env, '--uninstall', '--dry-run')
+            self.assertEqual(dry.returncode, 0, dry.stderr)
+            self.assertTrue((home / '.local/share/sounds/Twilight').is_dir())
+
+            result = install(repo, env, '--uninstall')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((home / '.local/share/sounds/Twilight').exists())
+            self.assertEqual(gtk3.read_text(), 'window { margin: 1px; }\n')
+            self.assertFalse((home / '.config/gtk-4.0/gtk.css').exists())
+            calls = log.read_text()
+            self.assertIn('dconf reset /org/gnome/desktop/wm/preferences/button-layout', calls)
+            self.assertIn('systemctl --user disable --now twilight-heal.service', calls)
+
+            again = install(repo, env, '--uninstall')
+            self.assertEqual(again.returncode, 0, again.stderr)
+
+    def test_uninstall_refuses_other_options(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, home, shims, env = sandbox(Path(tmp))
+            result = install(repo, env, '--uninstall', '--only', 'gtk')
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('--uninstall on its own', result.stderr)
+
+
 if __name__ == '__main__':
     unittest.main()
