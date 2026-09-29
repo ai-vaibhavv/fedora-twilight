@@ -527,9 +527,10 @@ uninstall() {
       dconf reset /org/gnome/desktop/background/picture-uri-dark
       dconf reset /org/gnome/desktop/screensaver/picture-uri
     fi
-    # Launchers and the extensions only Twilight installs; everything else in
-    # these lists belongs to the user.
-    python3 - "$ROUNDED_UUID" "$WACK_UUID" <<'PYU'
+    # Launchers and the extensions only Twilight installs, plus Burn My Windows:
+    # without the Twilight profile it falls back to its Fire effect. Everything
+    # else in these lists belongs to the user.
+    python3 - "$ROUNDED_UUID" "$WACK_UUID" burn-my-windows@schneegans.github.com <<'PYU'
 import ast, subprocess, sys
 def get(schema, key):
     out = subprocess.run(["gsettings", "get", schema, key], capture_output=True, text=True).stdout
@@ -577,7 +578,7 @@ PYU
   fi
 
   say "Left in place (they may predate Twilight): packages from packages/, the extensions"
-  say "  ${EGO_EXTENSIONS[*]},"
+  say "  ${EGO_EXTENSIONS[*]} (Burn My Windows is disabled),"
   say "  the Catppuccin cursor and the Flatpak read access to ~/.config/gtk-3.0 and gtk-4.0."
   say "Done. Log out and back in to finish. Your settings from before are in $backup/dconf.ini."
 }

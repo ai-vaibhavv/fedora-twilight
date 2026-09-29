@@ -122,7 +122,7 @@ shortcuts on the same keys are kept.
   `.twilight/backups/` (the ten newest are kept).
 - To remove Twilight, run `./install.sh --uninstall` (preview with `--dry-run`).
   It backs up first, resets the settings Twilight sets to GNOME defaults and removes
-  its files, lock screen and service. Packages, extensions from extensions.gnome.org
+  its files, lock screen and service. Packages, extensions from extensions.gnome.org (Burn My Windows is switched off)
   and the cursor stay. To get your earlier settings back afterwards, run
   `dconf load / < .twilight/backups/<oldest>/dconf.ini`.
 - If a step fails, the installer shows where, finishes the other steps and prints

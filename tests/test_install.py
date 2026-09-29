@@ -108,6 +108,10 @@ class UninstallTests(unittest.TestCase):
             for cmd in ('dconf', 'gsettings', 'systemctl'):
                 (shims / cmd).write_text(f'#!/bin/sh\necho "{cmd} $*" >> "{log}"\n')
                 (shims / cmd).chmod(0o755)
+            (shims / 'gsettings').write_text(
+                f'#!/bin/sh\necho "gsettings $*" >> "{log}"\n'
+                '[ "$1 $3" = "get enabled-extensions" ] && '
+                'echo "[\'burn-my-windows@schneegans.github.com\', \'mine@example.org\']"\nexit 0\n')
             self.assertEqual(install(repo, env, '--only', 'sounds,gtk').returncode, 0)
             gtk3 = home / '.config/gtk-3.0/gtk.css'
             gtk3.write_text('window { margin: 1px; }\n' + gtk3.read_text())
@@ -125,6 +129,7 @@ class UninstallTests(unittest.TestCase):
             calls = log.read_text()
             self.assertIn('dconf reset /org/gnome/desktop/wm/preferences/button-layout', calls)
             self.assertIn('systemctl --user disable --now twilight-heal.service', calls)
+            self.assertIn("gsettings set org.gnome.shell enabled-extensions ['mine@example.org']", calls)
 
             again = install(repo, env, '--uninstall')
             self.assertEqual(again.returncode, 0, again.stderr)
