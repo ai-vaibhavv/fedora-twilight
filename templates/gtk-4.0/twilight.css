@@ -49,11 +49,21 @@ windowcontrols > button.restore:not(.raised):not(.suggested-action):not(.destruc
   background-color: {{MAXIMIZE}};
 }
 
-/* Hover: reveal the symbol */
-windowcontrols > button.close:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
-windowcontrols > button.minimize:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
+/* Hover: reveal the symbol. The fill is repeated here because Colloid's own
+ * :hover rule is more specific and would otherwise grey the circle out. */
+windowcontrols > button.close:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: {{CLOSE}};
+  color: {{BASE}};
+}
+
+windowcontrols > button.minimize:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: {{MINIMIZE}};
+  color: {{BASE}};
+}
+
 windowcontrols > button.maximize:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image,
 windowcontrols > button.restore:hover:not(.raised):not(.suggested-action):not(.destructive-action):not(.opaque) > image {
+  background-color: {{MAXIMIZE}};
   color: {{BASE}};
 }
 
