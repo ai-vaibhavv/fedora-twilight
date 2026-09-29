@@ -3,6 +3,9 @@
 #
 #   ./install.sh                       install / re-apply everything
 #   ./install.sh --wallpaper FILE      also set FILE as desktop wallpaper
+#   ./install.sh --wallpaper FILE --auto-palette  match colours to FILE
+#   ./install.sh --keep-palette        reuse the last applied palette
+#   ./install.sh --dry-run             preview steps without changing anything
 #   ./install.sh --only gtk,qt         run selected steps only
 #   ./install.sh --no-sudo             skip steps that need root
 #   ./install.sh --check               verify every piece is installed and active
@@ -11,13 +14,15 @@
 #
 # Safe to re-run at any time. Edit palette.conf and re-run to recolour.
 
-set -euo pipefail
+set -Eeuo pipefail
 
 REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-DATA="$HOME/.local/share/twilight"          # installed copy used by --heal
-SRC="$DATA/src"                              # upstream checkouts
-BUILD="$DATA/build"                          # rendered files
-STATE="$DATA/state"
+DATA="$REPO"                                # scripts and templates stay in the checkout
+WORK="$REPO/.twilight"                      # ignored local workspace
+SRC="$WORK/src"
+BUILD="$WORK/build"
+STATE="$WORK/state"
+ACTIVE_PALETTE="$WORK/palette.conf"
 
 # Upstream projects, pinned to the commits Twilight was built and tested on.
 COLLOID_URL=https://github.com/vinceliuice/Colloid-gtk-theme.git
@@ -50,7 +55,7 @@ EGO_EXTENSIONS=(
 )
 
 PACKAGES=(
-  git curl unzip rsync python3 sassc gtk-murrine-engine glib2-devel
+  git curl unzip rsync python3 python3-pillow sassc gtk-murrine-engine glib2-devel
   gnome-tweaks gnome-extensions-app
   gnome-shell-extension-user-theme gnome-shell-extension-dash-to-dock
   gnome-shell-extension-just-perfection gnome-shell-extension-caffeine
@@ -76,7 +81,7 @@ notify() {
   command -v notify-send >/dev/null && notify-send -a Twilight -i preferences-desktop-theme "Twilight" "$*" || true
 }
 
-render() { python3 "$DATA/scripts/render.py" "$DATA/palette.conf" "$1" "${2:-}"; }
+render() { python3 "$DATA/scripts/render.py" "$ACTIVE_PALETTE" "$1" "${2:-}"; }
 
 # upsert_block FILE CONTENT_FILE: put CONTENT between Twilight markers in FILE,
 # replacing any previous copy and leaving the rest of FILE untouched.
@@ -315,6 +320,7 @@ step_lockscreen() {
   sudo find "$target/scripts" -name '*.sh' -exec chmod 755 {} + 2>/dev/null || true
 
   # Enable it for the login screen (gdm user).
+  sudo mkdir -p /etc/dconf/db/gdm.d
   printf '[org/gnome/shell]\nenabled-extensions=[%s]\ndisable-user-extensions=false\n' "'$WACK_UUID'" \
     | sudo tee /etc/dconf/db/gdm.d/99-wack-lockscreen >/dev/null
   sudo dconf update
@@ -340,11 +346,12 @@ subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str
 PY
 
   if [[ -n $WALLPAPER ]]; then
-    local dest="$HOME/.local/share/backgrounds/$(basename "$WALLPAPER")"
-    install -Dm644 "$WALLPAPER" "$dest"
-    gsettings set org.gnome.desktop.background picture-uri "file://$dest"
-    gsettings set org.gnome.desktop.background picture-uri-dark "file://$dest"
-    gsettings set org.gnome.desktop.screensaver picture-uri "file://$dest"
+    local dest="$HOME/.local/share/backgrounds/twilight-$(basename "$WALLPAPER")" uri
+    [[ $WALLPAPER == "$dest" ]] || install -Dm644 "$WALLPAPER" "$dest"
+    uri=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).as_uri())' "$dest")
+    gsettings set org.gnome.desktop.background picture-uri "$uri"
+    gsettings set org.gnome.desktop.background picture-uri-dark "$uri"
+    gsettings set org.gnome.desktop.screensaver picture-uri "$uri"
   fi
 }
 
@@ -379,11 +386,15 @@ for spec in sys.argv[1:]:
     name, binding, command = spec.split("|", 2)
     path = BASE + "twilight-" + re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") + "/"
     ours.append(path)
-    # Drop any other custom shortcut already using this key combination.
+    # Preserve existing bindings; let the user resolve conflicts in Settings.
     for p in list(paths):
         if p not in ours and get(SCHEMA, "binding", p) == binding:
-            paths.remove(p)
-            subprocess.run(["dconf", "reset", "-f", p])
+            print(f"Keeping existing shortcut {binding}; skipped {name}.", file=sys.stderr)
+            break
+    else:
+        p = None
+    if p is not None and p not in ours:
+        continue
     for key, val in (("name", name), ("command", command), ("binding", binding)):
         subprocess.run(["gsettings", "set", f"{SCHEMA}:{path}", key, val], check=True)
     if path not in paths:
@@ -395,7 +406,14 @@ PY2
 step_heal() {
   say "Installing the login-time self-repair service…"
   mkdir -p "$HOME/.config/systemd/user"
-  cp "$DATA/files/systemd/twilight-heal.service" "$HOME/.config/systemd/user/"
+  python3 - "$REPO" "$DATA/files/systemd/twilight-heal.service" "$HOME/.config/systemd/user/twilight-heal.service" <<'PYUNIT'
+from pathlib import Path
+import sys
+repo, template, destination = sys.argv[1:]
+# Escape systemd quoted arguments and literal percent specifiers.
+executable = (repo + "/install.sh").replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")
+Path(destination).write_text(Path(template).read_text().replace("@INSTALLER@", executable))
+PYUNIT
   systemctl --user daemon-reload
   systemctl --user enable twilight-heal.service >/dev/null 2>&1 || true
 }
@@ -409,15 +427,15 @@ heal() {
 
   if [[ ! -f $HOME/.local/lib/qt6/plugins/wayland-decoration-client/libqadwaitadecorations.so ]] ||
      [[ "$(rpm -q qt6-qtbase qt6-qtwayland)" != "$(cat "$STATE/qt-built-against" 2>/dev/null)" ]]; then
-    if "$DATA/install.sh" --only qt >"$STATE/qt-build.log" 2>&1; then changed+=("Qt title bars rebuilt for $(rpm -q qt6-qtbase)")
+    if "$DATA/install.sh" --keep-palette --only qt >"$STATE/qt-build.log" 2>&1; then changed+=("Qt title bars rebuilt for $(rpm -q qt6-qtbase)")
     else notify "Qt title-bar rebuild failed; see $STATE/qt-build.log"; fi
   fi
 
   if [[ ! -d $HOME/.themes/$THEME_NAME ]] || ! has_block "$HOME/.themes/$THEME_NAME/gnome-shell/gnome-shell.css"; then
-    if "$DATA/install.sh" --only theme >"$STATE/theme-build.log" 2>&1; then changed+=("GNOME Shell theme restored")
+    if "$DATA/install.sh" --keep-palette --only theme >"$STATE/theme-build.log" 2>&1; then changed+=("GNOME Shell theme restored")
     else notify "Theme rebuild failed; see $STATE/theme-build.log"; fi
   elif ! has_block "$HOME/.config/gtk-4.0/gtk.css" || ! has_block "$HOME/.config/gtk-3.0/gtk.css"; then
-    "$DATA/install.sh" --only gtk >/dev/null 2>&1 && changed+=("GTK window buttons restored")
+    "$DATA/install.sh" --keep-palette --only gtk >/dev/null 2>&1 && changed+=("GTK window buttons restored")
   fi
 
   local w="/usr/share/gnome-shell/extensions/$WACK_UUID"
@@ -428,7 +446,7 @@ heal() {
   local ver uuid state
   ver=$(shell_major)
   for uuid in $(gsettings get org.gnome.shell enabled-extensions | tr -d "[]',"); do
-    state=$(gnome-extensions info "$uuid" 2>/dev/null | awk -F': ' '/State/{print $2}')
+    state=$(gnome-extensions info "$uuid" 2>/dev/null | awk -F': ' '/State/{print $2}' || true)
     case $state in
       ERROR|OUT\ OF\ DATE|OUT_OF_DATE)
         notify "Extension $uuid is $state on GNOME $ver. Update it in Extension Manager." ;;
@@ -449,7 +467,20 @@ check() {
   bad()  { printf '  %s✗%s %s\n' "$R" "$N" "$1"; [[ -n ${2:-} ]] && printf '      → %s\n' "$2"; fails=$((fails+1)); }
   t()    { local desc=$1 fix=$2; shift 2; if "$@" >/dev/null 2>&1; then ok "$desc"; else bad "$desc" "$fix"; fi; }
   gs()   { [[ "$(gsettings get "$1" "$2" 2>/dev/null)" == "'$3'" ]]; }
-  run()  { echo "$DATA/install.sh --only $1"; }
+  run()  { echo "$DATA/install.sh --keep-palette --only $1"; }
+  matches_palette() {
+    python3 - "$REPO" "$ACTIVE_PALETTE" "$1" "$2" <<'PYMATCH'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "scripts"))
+from render import load_palette, render
+try:
+    expected = render(Path(sys.argv[3]).read_text(), load_palette(sys.argv[2]))
+    sys.exit(0 if expected in Path(sys.argv[4]).read_text() else 1)
+except OSError:
+    sys.exit(1)
+PYMATCH
+  }
 
   echo "${B}Theme${N}"
   t "Theme $THEME_NAME built"                    "$(run theme)" test -f "$HOME/.themes/$THEME_NAME/index.theme"
@@ -458,6 +489,11 @@ check() {
   t "GTK 4 / libadwaita window buttons"          "$(run gtk)"   has_block "$HOME/.config/gtk-4.0/gtk.css"
   t "GTK theme selected"                         "$(run settings)" gs org.gnome.desktop.interface gtk-theme "$THEME_NAME"
   t "Shell theme selected"                       "$(run settings)" gs org.gnome.shell.extensions.user-theme name "$THEME_NAME"
+
+  t "Shell colours match active palette" "$(run theme)" matches_palette "$REPO/templates/gnome-shell/twilight.css" "$HOME/.themes/$THEME_NAME/gnome-shell/gnome-shell.css"
+  t "GTK 3 colours match active palette" "$(run gtk)" matches_palette "$REPO/templates/gtk-3.0/twilight.css" "$HOME/.config/gtk-3.0/gtk.css"
+  t "GTK 4 colours match active palette" "$(run gtk)" matches_palette "$REPO/templates/gtk-4.0/twilight.css" "$HOME/.config/gtk-4.0/gtk.css"
+  t "GNOME accent matches active palette" "$(run settings)" gs org.gnome.desktop.interface accent-color "$GNOME_ACCENT"
 
   echo "${B}Icons, cursor, fonts, sounds${N}"
   t "Papirus-Twilight folders"                   "$(run icons)"  test -f "$HOME/.local/share/icons/Papirus-Twilight/scalable/places/folder.svg"
@@ -482,9 +518,12 @@ check() {
   t "Twilight login-screen styling"              "$(run lockscreen)" has_block "$w/src/pro/gdm.css"
   t "Enabled on the login screen (GDM)"          "$(run lockscreen)" grep -q "$WACK_UUID" /etc/dconf/db/gdm.d/99-wack-lockscreen
 
+  t "Lock-screen colours match active palette" "$(run lockscreen)" matches_palette "$REPO/templates/lockscreen/stylesheet.css" "$w/stylesheet.css"
+  t "Login-screen colours match active palette" "$(run lockscreen)" matches_palette "$REPO/templates/lockscreen/gdm.css" "$w/src/pro/gdm.css"
+
   echo "${B}Extensions (GNOME $(shell_major))${N}"
   for e in "${DNF_EXTENSIONS[@]}" "${EGO_EXTENSIONS[@]}" "$ROUNDED_UUID" "$WACK_UUID"; do
-    g=$(gnome-extensions info "$e" 2>/dev/null | awk -F': ' '/State/{print $2}')
+    g=$(gnome-extensions info "$e" 2>/dev/null | awk -F': ' '/State/{print $2}' || true)
     case $g in
       ACTIVE) ok "$e" ;;
       INITIALIZED|INACTIVE) if [[ $e == "$WACK_UUID" ]]; then ok "$e (only runs on the lock/login screen)"; else bad "$e: $g" "log out and back in"; fi ;;
@@ -515,44 +554,121 @@ check() {
 
 # --------------------------------------------------------------------- main ---
 
-ONLY="" NO_SUDO=false WALLPAPER="" CHECK=false
+ONLY="" NO_SUDO=false WALLPAPER="" CHECK=false AUTO_PALETTE=false DRY_RUN=false KEEP_PALETTE=false
 while (($#)); do
   case $1 in
-    --only) ONLY=$2; shift ;;
+    --only|--wallpaper)
+      [[ $# -ge 2 && -n $2 && $2 != --* ]] || die "$1 needs a value (see --help)."
+      if [[ $1 == --only ]]; then ONLY=$2; else WALLPAPER=$(readlink -m -- "$2"); fi
+      shift ;;
+    --keep-palette) KEEP_PALETTE=true ;;
+    --auto-palette) AUTO_PALETTE=true ;;
+    --dry-run) DRY_RUN=true ;;
     --no-sudo) NO_SUDO=true ;;
-    --wallpaper) WALLPAPER=$(readlink -f "$2"); shift ;;
     --heal) HEAL=true ;;
     --check) CHECK=true ;;
     --list) printf '%s\n' "${ALL_STEPS[@]}"; exit 0 ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,/^set -/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
     *) die "Unknown option: $1 (see --help)" ;;
   esac
   shift
 done
 
-[[ $EUID -ne 0 ]] || die "Run as your normal user; the script calls sudo when it needs to."
-
-# Keep an installed copy so --heal works even if this checkout is moved or deleted.
-mkdir -p "$DATA" "$SRC" "$BUILD" "$STATE"
-if [[ $REPO != "$DATA" ]]; then
-  rsync -a --delete --exclude .git --exclude docs --exclude src --exclude build --exclude state \
-        "$REPO/" "$DATA/"
-fi
-
-# shellcheck source=palette.conf
-source "$DATA/palette.conf"
-
-if $HEAL; then heal; exit 0; fi
-if $CHECK; then check; exit $?; fi
-
 steps=("${ALL_STEPS[@]}")
 [[ -n $ONLY ]] && IFS=',' read -ra steps <<<"$ONLY"
+[[ $ONLY != ,* && $ONLY != *, && $ONLY != *,,* ]] || die "Empty step in --only."
 for s in "${steps[@]}"; do
-  declare -F "step_$s" >/dev/null || die "Unknown step: $s (see --list)"
+  valid=false
+  for allowed in "${ALL_STEPS[@]}"; do [[ $s != "$allowed" ]] || valid=true; done
+  $valid || die "Unknown step: $s (see --list)"
+done
+[[ -z $WALLPAPER || -f $WALLPAPER && -r $WALLPAPER ]] || die "Wallpaper is not a readable file: $WALLPAPER"
+if $KEEP_PALETTE; then
+  [[ -f $ACTIVE_PALETTE ]] || die "No saved palette yet. Install once without --keep-palette."
+fi
+if $AUTO_PALETTE; then
+  $KEEP_PALETTE && die "Use --auto-palette or --keep-palette, not both."
+  [[ -n $WALLPAPER ]] || die "--auto-palette needs --wallpaper FILE."
+  [[ " ${steps[*]} " == *" settings "* ]] || die "Include settings in --only to apply the wallpaper and accent."
+fi
+if $CHECK || $HEAL; then
+  [[ -z $ONLY && -z $WALLPAPER && $AUTO_PALETTE == false && $DRY_RUN == false ]] || die "Use --check or --heal on its own (optionally --no-sudo)."
+  [[ $CHECK != true || $HEAL != true ]] || die "Use --check or --heal, not both."
+fi
+
+if ! $HEAL && ! $CHECK; then
+  say "Twilight installation plan"
+  for s in "${steps[@]}"; do
+    if $NO_SUDO && [[ $ROOT_STEPS == *" $s "* ]]; then
+      say "  $s — skipped (--no-sudo)"
+    else
+      say "  $s"
+    fi
+  done
+  [[ -z $WALLPAPER ]] || say "Wallpaper: $WALLPAPER"
+  $AUTO_PALETTE && say "Colours: generated from wallpaper; saved in $ACTIVE_PALETTE"
+  say "Settings and shortcuts steps change your GNOME preferences. Existing user configuration is backed up."
+  if ! $NO_SUDO; then say "Packages, login-screen styling and system fonts may request sudo."; fi
+  $DRY_RUN && exit 0
+fi
+[[ $EUID -ne 0 ]] || die "Run as your normal user; the script calls sudo when it needs to."
+
+# Checks must not replace an installed palette or create an installation.
+if $CHECK; then
+  if [[ -f $ACTIVE_PALETTE ]]; then source "$ACTIVE_PALETTE"; else source "$REPO/palette.conf"; fi
+  check; exit $?
+fi
+
+if ! $HEAL; then
+  for cmd in python3 rsync; do
+    command -v "$cmd" >/dev/null || die "Missing $cmd. Install prerequisites: sudo dnf install git python3 python3-pillow rsync"
+  done
+  if $AUTO_PALETTE; then
+    # Validate and decode before touching the installed configuration.
+    python3 "$REPO/scripts/palette-from-wallpaper.py" "$WALLPAPER" >/dev/null
+  fi
+  if [[ " ${steps[*]} " == *" settings "* || " ${steps[*]} " == *" shortcuts "* ]]; then
+    command -v dconf >/dev/null && command -v gsettings >/dev/null || die "Run this from a GNOME desktop with dconf and gsettings installed."
+    gsettings get org.gnome.desktop.interface gtk-theme >/dev/null || die "Cannot read GNOME settings. Run from your desktop terminal."
+  fi
+  backup="$WORK/backups/$(date +%Y%m%d-%H%M%S)-$$"
+  mkdir -p "$backup"
+  chmod 700 "$backup"
+  for item in .config/gtk-3.0 .config/gtk-4.0 .config/environment.d/90-twilight-qt.conf .config/burn-my-windows .config/systemd/user/twilight-heal.service .local/share/twilight/palette.conf; do
+    if [[ -e $HOME/$item || -L $HOME/$item ]]; then
+      mkdir -p "$backup/$(dirname "$item")"
+      cp -a "$HOME/$item" "$backup/$item"
+    fi
+  done
+  if command -v dconf >/dev/null; then dconf dump / > "$backup/dconf.ini"; fi
+  say "User configuration backup: $backup (see README for recovery; not a full uninstall)."
+fi
+
+mkdir -p "$SRC" "$BUILD" "$STATE" "$WORK/tmp"
+export TMPDIR="$WORK/tmp"
+if ! $HEAL; then
+  if [[ -f $ACTIVE_PALETTE ]]; then cp "$ACTIVE_PALETTE" "$backup/palette.conf"; fi
+  if $AUTO_PALETTE; then
+    python3 "$DATA/scripts/palette-from-wallpaper.py" "$WALLPAPER" --output "$ACTIVE_PALETTE"
+  elif ! $KEEP_PALETTE; then
+    cp "$REPO/palette.conf" "$ACTIVE_PALETTE"
+  fi
+fi
+[[ -f $ACTIVE_PALETTE ]] || die "No active palette. Run ./install.sh first."
+source "$ACTIVE_PALETTE"
+if $HEAL; then heal; exit 0; fi
+
+current_step=setup
+trap 'warn "Installation stopped during $current_step. Backup: ${backup:-none}. Fix the error above, then rerun the same command."' ERR
+index=0
+for s in "${steps[@]}"; do
   if $NO_SUDO && [[ $ROOT_STEPS == *" $s "* ]]; then
     warn "Skipping '$s' (needs sudo)"; continue
   fi
+  current_step=$s
+  index=$((index + 1))
+  say "[$index/${#steps[@]}] $s"
   "step_$s"
 done
-
 say "Done. Log out and back in to load the shell theme, extensions and Qt settings."
+say "After logging in, run: $REPO/install.sh --check"

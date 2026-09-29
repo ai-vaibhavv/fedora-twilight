@@ -49,3 +49,39 @@ left on disk. It's here so nobody (including future me) repeats the dead ends.
 - The Qt plugin is compiled against Qt's **private** headers, so any `qt6-qtbase` or
   `qt6-qtwayland` update can make it silently stop loading. `twilight-heal.service` now
   rebuilds it automatically.
+
+## Live PC audit (2026-09-29)
+
+Compared the repository with the running Fedora 44 / GNOME 50 session before
+changing colours. Rendered GTK 3, GTK 4, Shell, WACK lock-screen and GDM CSS all
+matched the installed purple customisation. All expected extensions and the Qt
+environment were active. The kept/discarded list above matches the enabled
+extensions; saved settings for old experiments are not evidence that they run.
+Rounded Window Corners Reborn also has leftover settings but is not enabled;
+Rounded Windows is the selected implementation.
+
+Added missing portable preferences: battery percentage, weather after the clock,
+and disabled Dash to Dock hotkeys/shortcut binding. Personal weather locations,
+widget positions from discarded experiments and app-specific settings are not
+exported into the installer.
+
+The original shared conversation returned HTTP 403, so this is a comparison with
+live files/settings and the recorded journey, not a verified transcript review.
+
+The wallpaper test used `dark-netflix.jpg`: it selects yellow for Colloid, Papirus
+folders and the GNOME accent. User-level installation, Qt compilation/linking,
+palette-preserving reapplication and the repair service were tested. The default
+purple `palette.conf` stays unchanged. Workspaces now live under the checkout's
+ignored `.twilight/` directory; installed runtime assets remain in GNOME's normal
+locations. The legacy workspace is not automatically deleted.
+
+`--check` now checks rendered colours as well as installation markers, so an old
+purple lock/login theme cannot incorrectly pass a yellow-palette validation.
+A fresh-VM installation and visual inspection after a fresh login remain separate
+release checks; an existing configured PC does not establish those results.
+
+For this yellow-wallpaper run, sudo credentials were terminal-specific. The user
+will apply the lock/login-screen step manually with
+`./install.sh --keep-palette --only lockscreen`. Until then the two colour checks
+for those screens are expected to fail. No fresh-login visual verification was
+claimed: GNOME denied automated screenshot access.

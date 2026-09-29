@@ -5,7 +5,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=oneshot
-ExecStart=%h/.local/share/twilight/install.sh --heal
+ExecStart="@INSTALLER@" --heal
 Nice=10
 
 [Install]

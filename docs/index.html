@@ -38,9 +38,11 @@
   <img src="screenshots/desktop.png" alt="Twilight desktop">
   <img src="screenshots/lockscreen.png" alt="Twilight lock screen">
 
-  <pre>git clone https://github.com/ai-vaibhavv/fedora-twilight
+  <pre>sudo dnf install git python3 python3-pillow rsync
+git clone https://github.com/ai-vaibhavv/fedora-twilight
 cd fedora-twilight
-./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg</pre>
+./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg --auto-palette</pre>
+  <p>Add <code>--dry-run</code> to preview installation. Run in your GNOME terminal, then log out and back in. Configuration backups are saved before installation. Changing the wallpaper in Settings does not automatically recolour Twilight; rerun with <code>--auto-palette</code>.</p>
 
   <footer>
     <a href="https://github.com/ai-vaibhavv/fedora-twilight">GitHub</a> ·

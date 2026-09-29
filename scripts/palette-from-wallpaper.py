@@ -46,8 +46,9 @@ def nearest(table, hue):
 
 
 def clusters(path, n=16):
-    img = Image.open(path).convert("RGB")
-    img.thumbnail((320, 320))
+    with Image.open(path) as source:
+        source.thumbnail((320, 320))
+        img = source.convert("RGB")
     q = img.quantize(colors=n, method=Image.Quantize.MEDIANCUT)
     pal = q.getpalette()
     out = []
@@ -68,7 +69,7 @@ def suggest(path):
         wt = c["w"] * c["s"]
         x += wt * math.cos(math.radians(c["h"]))
         y += wt * math.sin(math.radians(c["h"]))
-    base_h = math.degrees(math.atan2(y, x)) % 360
+    base_h = math.degrees(math.atan2(y, x)) % 360 if math.hypot(x, y) > 1e-6 else 270
 
     # Colourful candidates, strongest first; pick three well-separated hues.
     vivid = sorted((c for c in cs if c["s"] > 0.25 and 0.2 < c["l"] < 0.85),
@@ -79,9 +80,12 @@ def suggest(path):
             hues.append(c["h"])
         if len(hues) == 3:
             break
-    fallback = [base_h + 60, base_h - 60, base_h + 180]
-    while len(hues) < 3:
-        hues.append(fallback[len(hues)] % 360)
+    for offset in (0, 60, -60, 180, 120, -120):
+        if len(hues) == 3:
+            break
+        candidate = (base_h + offset) % 360
+        if all(hue_dist(candidate, h) > 35 for h in hues):
+            hues.append(candidate)
 
     accent_h = hues[0]
     close_h = min(hues, key=lambda h: hue_dist(h, 335))
@@ -123,19 +127,28 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("wallpaper")
     ap.add_argument("--write", action="store_true", help=f"update {PALETTE.name} in place")
+    ap.add_argument("--output", type=Path, help="write a generated palette to this file without editing the default")
     args = ap.parse_args()
+    if args.write and args.output:
+        ap.error("Use --write or --output, not both")
 
-    pal = suggest(args.wallpaper)
+    try:
+        pal = suggest(args.wallpaper)
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        ap.exit(2, f"Cannot read wallpaper: {exc}\n")
     tty = sys.stdout.isatty()
     for k, v in pal.items():
         print(f"{swatch(v) + ' ' if tty else ''}{k}={v}")
 
-    if args.write:
+    if args.write or args.output:
         text = PALETTE.read_text()
         for k, v in pal.items():
             text = re.sub(rf"(?m)^{k}=.*$", f"{k}={v}", text)
-        PALETTE.write_text(text)
-        print(f"\nUpdated {PALETTE}. Run ./install.sh --wallpaper {args.wallpaper} to apply.")
+        target = args.output or PALETTE
+        if target.exists():
+            target.with_suffix(target.suffix + ".bak").write_text(target.read_text())
+        target.write_text(text)
+        print(f"\nSaved palette: {target}")
 
 
 if __name__ == "__main__":

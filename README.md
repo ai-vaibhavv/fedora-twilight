@@ -28,15 +28,40 @@ one file.
 Fedora Workstation 44 (GNOME 50) was used to build and test this.
 
 ```bash
+sudo dnf install git python3 python3-pillow rsync
 git clone https://github.com/ai-vaibhavv/fedora-twilight.git
 cd fedora-twilight
-./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg
+./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg --auto-palette --dry-run
+./install.sh --wallpaper ~/Pictures/your-wallpaper.jpg --auto-palette
 ```
 
-Log out and back in. That's it. The script asks for your password when it installs
-packages and the login-screen extension.
+Run from a terminal in your GNOME session, as your normal user. The first command
+previews the steps without changing anything; the second installs. It needs network
+access and asks for sudo for packages, system fonts and the login-screen extension.
+Log out and back in, then run `./install.sh --check`.
+
+The installer changes appearance settings and, in the shortcuts step, built-in key
+bindings. Conflicting custom launcher shortcuts are preserved. Use `--only` to
+choose components; `--no-sudo` skips packages and login-screen installation (required
+packages must already be installed).
 
 ### Make it yours
+
+Use `--wallpaper FILE --auto-palette` to extract colours and install in one command.
+Omit `--auto-palette` to use the repository's `palette.conf` instead. Generating during
+installation saves the palette in `.twilight/palette.conf`; it does not
+edit the checkout. Repeat the same command for a new wallpaper. Re-running from the
+checkout without `--auto-palette` restores the checkout's palette. Use
+`--keep-palette` for partial reinstalls that should keep your generated colours.
+
+Changing the wallpaper in GNOME Settings alone **does not recolour Twilight**.
+There is no background watcher. Colours apply to Twilight's custom surfaces,
+controls and lock-screen styles; Colloid, folder icons and GNOME accents use the
+nearest available named variant. The cursor stays lavender, the theme stays dark,
+and apps with their own styling may not follow it. The clock position remains a
+manual `LOCK_CLOCK_X` setting; colour extraction cannot detect the wallpaper subject.
+
+To preview colours or save a palette for manual editing:
 
 ```bash
 ./scripts/palette-from-wallpaper.py ~/Pictures/your-wallpaper.jpg           # preview
@@ -49,9 +74,39 @@ then re-run `./install.sh`. You can also re-run single parts:
 
 ```bash
 ./install.sh --list                  # packages theme gtk icons cursor fonts sounds extensions qt lockscreen settings shortcuts heal
-./install.sh --only gtk,qt           # just re-colour the window buttons
+./install.sh --keep-palette --only gtk,qt # reapply current window-button colours
 ./install.sh --no-sudo               # everything that doesn't need root
 ```
+
+### Where files live
+
+All upstream checkouts, builds, downloads, temporary build files, state, generated
+palettes and backups stay in the ignored `.twilight/` directory inside this repo.
+GNOME still loads installed assets from `~/.themes`, `~/.config` and `~/.local`;
+the login extension and system fonts require system installation. Those are
+installation destinations, not build directories. The repair service runs the
+installer from this checkout: **keep the repo in place**. After moving it, run
+`./install.sh --keep-palette --only heal` to update the service path.
+Older installations may still have a previous workspace at
+`~/.local/share/twilight`; this installer no longer builds there.
+
+### Backups and recovery
+
+Before installation, user GTK configuration, Twilight's environment and service
+files, Burn My Windows configuration, the installed palette and a dconf snapshot
+are saved under `.twilight/backups/<timestamp>-<pid>/`.
+This is a configuration backup, **not a complete uninstall or a backup of system
+packages/GDM**. Keep the printed path. To recover a particular file, copy its
+matching backup back into your home directory. Stop self-repair before recovering:
+
+```bash
+systemctl --user disable --now twilight-heal.service
+```
+
+The `dconf.ini` snapshot contains all your dconf preferences. Inspect it first;
+`dconf load / < /path/to/backup/dconf.ini` restores saved keys but also overwrites
+later preference changes and does not remove newly added keys. Full automatic
+rollback, including GDM, is not implemented.
 
 ## Verify
 
@@ -59,31 +114,33 @@ then re-run `./install.sh`. You can also re-run single parts:
 ./install.sh --check
 ```
 
-Prints a ✓/✗ line for every piece (theme, buttons, Qt plugin, fonts, lock/login screen,
+Compares rendered Shell/GTK/lock/login colours with the active palette and
+prints a ✓/✗ line for every piece (theme, buttons, Qt plugin, fonts, lock/login screen,
 extensions, self-repair) and tells you the exact command that fixes each ✗.
 
-To test a clean install without touching your desktop, use a throwaway home folder
-(this skips the steps that need root or a running session):
+For local checks that do not change the desktop:
 
 ```bash
-HOME=$(mktemp -d) ./install.sh --no-sudo --only theme,icons,cursor,sounds,qt
+./install.sh --dry-run
+python3 -m unittest discover -s tests -v
 ```
 
 For the full reinstall test, install Fedora Workstation in a GNOME Boxes VM, clone the repo
 there, run `./install.sh`, log out and back in, then run `./install.sh --check`.
 
-## Why it won't break after updates
+## Update resilience and limitations
 
 Most "rice" guides edit files that the next update overwrites. Twilight avoids that:
 
 - **Upstream projects are pinned** (exact commits of Colloid, QAdwaitaColorfulDecorations,
-  WACK lockscreen, Rounded Windows), so a re-install gives the same result a year from now.
+  WACK lockscreen, Rounded Windows), to reduce upstream drift. Fedora packages and extension-store downloads still change;
+  new GNOME/Qt releases require testing.
 - **Edits are layered, not patched in place.** GTK 3 buttons live in `~/.config/gtk-3.0/gtk.css`,
   which GTK applies on top of *any* theme. The Shell and GTK 4 tweaks are appended between
   `/* >>> fedora-twilight >>> */` markers, which the installer can re-apply any number of times.
 - **Nothing in `/usr` that dnf owns is modified.** The login-screen extension lives in a
   directory no package owns, and fonts go in `/usr/local`.
-- **`twilight-heal.service`** runs at every login (in under a second when nothing changed) and:
+- **`twilight-heal.service`** runs at every login and:
   - rebuilds the Qt title-bar plugin when `qt6-qtbase`/`qt6-qtwayland` update (the plugin uses
     Qt private APIs and must match the exact Qt build);
   - restores the theme or GTK button styles if something replaced them;
