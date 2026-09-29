@@ -65,23 +65,15 @@ and disabled Dash to Dock hotkeys/shortcut binding. Personal weather locations,
 widget positions from discarded experiments and app-specific settings are not
 exported into the installer.
 
-The original shared conversation returned HTTP 403, so this is a comparison with
-live files/settings and the recorded journey, not a verified transcript review.
+The wallpaper palette was tested with a dark yellow wallpaper: it selects yellow for
+Colloid, Papirus folders and the GNOME accent, and the default purple `palette.conf`
+stays unchanged. Build workspaces moved into the checkout's ignored `.twilight/`
+directory; installed files stay in GNOME's normal locations.
 
-The wallpaper test used `dark-netflix.jpg`: it selects yellow for Colloid, Papirus
-folders and the GNOME accent. User-level installation, Qt compilation/linking,
-palette-preserving reapplication and the repair service were tested. The default
-purple `palette.conf` stays unchanged. Workspaces now live under the checkout's
-ignored `.twilight/` directory; installed runtime assets remain in GNOME's normal
-locations. The legacy workspace is not automatically deleted.
+`--check` compares rendered colours, not only installation markers, so a lock or
+login screen still in the old palette fails the check.
 
-`--check` now checks rendered colours as well as installation markers, so an old
-purple lock/login theme cannot incorrectly pass a yellow-palette validation.
-A fresh-VM installation and visual inspection after a fresh login remain separate
-release checks; an existing configured PC does not establish those results.
-
-For this yellow-wallpaper run, sudo credentials were terminal-specific. The user
-will apply the lock/login-screen step manually with
-`./install.sh --keep-palette --only lockscreen`. Until then the two colour checks
-for those screens are expected to fail. No fresh-login visual verification was
-claimed: GNOME denied automated screenshot access.
+LibreOffice launchers from the first manual setup (`~/.local/bin/libreoffice-twilight`
+and copies of its `.desktop` files) were retired: the session-wide
+`environment.d` file already gives LibreOffice the Qt 6 title bar, and the copies
+would have hidden updates to the system launchers.

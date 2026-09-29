@@ -81,6 +81,16 @@ notify() {
   command -v notify-send >/dev/null && notify-send -a Twilight -i preferences-desktop-theme "Twilight" "$*" || true
 }
 
+# ERR trap: print the failing command and the function stack that led to it.
+# set -E makes functions and subshells inherit it.
+trace() {
+  local rc=$? i
+  warn "Failed (exit $rc): $BASH_COMMAND"
+  for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
+    warn "  at ${FUNCNAME[i]} (${BASH_SOURCE[i]##*/}:${BASH_LINENO[i-1]})"
+  done
+}
+
 render() { python3 "$DATA/scripts/render.py" "$ACTIVE_PALETTE" "$1" "${2:-}"; }
 
 # upsert_block FILE CONTENT_FILE: put CONTENT between Twilight markers in FILE,
@@ -140,10 +150,21 @@ step_theme() {
   upsert_block "$dest/gnome-shell/gnome-shell.css" "$BUILD/shell.css"
 
   # libadwaita (GTK 4) apps read ~/.config/gtk-4.0 instead of the theme folder.
+  # Colloid's CSS goes first, between its own markers; anything else the user
+  # keeps in gtk.css stays after it, and step_gtk adds Twilight's block last.
+  local gtk4="$HOME/.config/gtk-4.0/gtk.css" rest
+  local start='/* >>> colloid (managed by fedora-twilight) >>> */' end='/* <<< colloid (managed by fedora-twilight) <<< */'
   mkdir -p "$HOME/.config/gtk-4.0"
   rm -rf "$HOME/.config/gtk-4.0/assets"
   cp -a "$dest/gtk-4.0/assets" "$HOME/.config/gtk-4.0/assets"
-  cp "$dest/gtk-4.0/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+  rest=$(mktemp)
+  # Before these markers existed the whole file was Colloid's, so there is
+  # nothing of the user's to carry over.
+  if grep -qxF "$start" "$gtk4" 2>/dev/null; then
+    awk -v s="$start" -v e="$end" '$0==s{skip=1;next} $0==e{skip=0;next} !skip' "$gtk4" > "$rest"
+  fi
+  { echo "$start"; cat "$dest/gtk-4.0/gtk.css"; echo "$end"; cat "$rest"; } > "$gtk4"
+  rm -f "$rest"
   step_gtk
 }
 
@@ -154,6 +175,10 @@ step_gtk() {
   # GTK 3 layers ~/.config/gtk-3.0/gtk.css over any theme, so updates can't remove it.
   upsert_block "$HOME/.config/gtk-3.0/gtk.css" "$BUILD/gtk3.css"
   upsert_block "$HOME/.config/gtk-4.0/gtk.css" "$BUILD/gtk4.css"
+  # Flatpak apps are sandboxed from ~/.config; let them read these two folders.
+  if command -v flatpak >/dev/null; then
+    flatpak override --user --filesystem=xdg-config/gtk-3.0:ro --filesystem=xdg-config/gtk-4.0:ro
+  fi
 }
 
 step_icons() {
@@ -426,7 +451,7 @@ heal() {
   local changed=()
 
   if [[ ! -f $HOME/.local/lib/qt6/plugins/wayland-decoration-client/libqadwaitadecorations.so ]] ||
-     [[ "$(rpm -q qt6-qtbase qt6-qtwayland)" != "$(cat "$STATE/qt-built-against" 2>/dev/null)" ]]; then
+     [[ "$(rpm -q qt6-qtbase qt6-qtwayland)" != "$(cat "$STATE/qt-built-against" 2>/dev/null || true)" ]]; then
     if "$DATA/install.sh" --keep-palette --only qt >"$STATE/qt-build.log" 2>&1; then changed+=("Qt title bars rebuilt for $(rpm -q qt6-qtbase)")
     else notify "Qt title-bar rebuild failed; see $STATE/qt-build.log"; fi
   fi
@@ -440,7 +465,7 @@ heal() {
 
   local w="/usr/share/gnome-shell/extensions/$WACK_UUID"
   if [[ ! -d $w ]] || ! has_block "$w/stylesheet.css"; then
-    notify "The Twilight lock/login screen styling is missing (not installed yet, or an update replaced it). Run: $DATA/install.sh --only lockscreen"
+    notify "The Twilight lock/login screen styling is missing (not installed yet, or an update replaced it). Run: $DATA/install.sh --keep-palette --only lockscreen"
   fi
 
   local ver uuid state
@@ -493,6 +518,9 @@ PYMATCH
   t "Shell colours match active palette" "$(run theme)" matches_palette "$REPO/templates/gnome-shell/twilight.css" "$HOME/.themes/$THEME_NAME/gnome-shell/gnome-shell.css"
   t "GTK 3 colours match active palette" "$(run gtk)" matches_palette "$REPO/templates/gtk-3.0/twilight.css" "$HOME/.config/gtk-3.0/gtk.css"
   t "GTK 4 colours match active palette" "$(run gtk)" matches_palette "$REPO/templates/gtk-4.0/twilight.css" "$HOME/.config/gtk-4.0/gtk.css"
+  if command -v flatpak >/dev/null; then
+    t "Flatpak apps can read the GTK button styles" "$(run gtk)" bash -c "flatpak override --user --show | grep -q xdg-config/gtk-4.0:ro"
+  fi
   t "GNOME accent matches active palette" "$(run settings)" gs org.gnome.desktop.interface accent-color "$GNOME_ACCENT"
 
   echo "${B}Icons, cursor, fonts, sounds${N}"
@@ -533,8 +561,16 @@ PYMATCH
   done
 
   echo "${B}Keyboard shortcuts${N}"
-  t "Super+T opens a terminal"                   "$(run shortcuts)" bash -c "dconf dump /org/gnome/settings-daemon/plugins/media-keys/ | grep -A2 -B1 \"binding='<Super>t'\" | grep -q ptyxis"
-  t "Super+E opens Files"                        "$(run shortcuts)" bash -c "dconf dump /org/gnome/settings-daemon/plugins/media-keys/ | grep -A2 -B1 \"binding='<Super>e'\" | grep -q nautilus"
+  # The shortcuts step leaves a key alone when one of the user's own shortcuts
+  # already uses it, so that counts as a pass rather than a fixable failure.
+  launcher() { # DESC BINDING COMMAND
+    local keys; keys=$(dconf dump /org/gnome/settings-daemon/plugins/media-keys/ 2>/dev/null || true)
+    if grep -A2 -B1 -F "binding='$2'" <<<"$keys" | grep -q "$3"; then ok "$1"
+    elif grep -qF "binding='$2'" <<<"$keys"; then ok "$1: key kept for your own shortcut"
+    else bad "$1" "$(run shortcuts)"; fi
+  }
+  launcher "Super+T opens a terminal" '<Super>t' ptyxis
+  launcher "Super+E opens Files"      '<Super>e' nautilus
   t "Super+Q closes windows"                     "$(run shortcuts)" bash -c "gsettings get org.gnome.desktop.wm.keybindings close | grep -q '<Super>q'"
   t "Super+Ctrl+arrows switch workspace"         "$(run shortcuts)" bash -c "gsettings get org.gnome.desktop.wm.keybindings switch-to-workspace-left | grep -q '<Super><Control>Left'"
   t "Super+M opens notifications"                "$(run shortcuts)" bash -c "gsettings get org.gnome.shell.keybindings toggle-message-tray | grep -q '<Super>m'"
@@ -648,27 +684,61 @@ mkdir -p "$SRC" "$BUILD" "$STATE" "$WORK/tmp"
 export TMPDIR="$WORK/tmp"
 if ! $HEAL; then
   if [[ -f $ACTIVE_PALETTE ]]; then cp "$ACTIVE_PALETTE" "$backup/palette.conf"; fi
+  # A palette generated from the wallpaper survives partial runs, so --only
+  # never leaves some pieces in the old colours. Full runs restore palette.conf.
+  source_file="$STATE/palette-source"
+  palette_source=$(cat "$source_file" 2>/dev/null || true)
+  if [[ -z $palette_source && -f $ACTIVE_PALETTE ]]; then
+    # Installs from before this file existed: a palette that differs from the
+    # checkout's can only have come from a wallpaper.
+    cmp -s "$ACTIVE_PALETTE" "$REPO/palette.conf" && palette_source=repo || palette_source=wallpaper
+  fi
   if $AUTO_PALETTE; then
     python3 "$DATA/scripts/palette-from-wallpaper.py" "$WALLPAPER" --output "$ACTIVE_PALETTE"
-  elif ! $KEEP_PALETTE; then
+    echo wallpaper > "$source_file"
+  elif $KEEP_PALETTE || [[ -n $ONLY && $palette_source == wallpaper && -f $ACTIVE_PALETTE ]]; then
+    $KEEP_PALETTE || say "Keeping the wallpaper palette for this partial run (a full run restores palette.conf)."
+    if [[ -n $palette_source ]]; then echo "$palette_source" > "$source_file"; fi
+  else
     cp "$REPO/palette.conf" "$ACTIVE_PALETTE"
+    echo repo > "$source_file"
   fi
+
+  # Keep the ten newest backups.
+  find "$WORK/backups" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r | tail -n +11 |
+    while read -r old; do rm -rf "${WORK:?}/backups/$old"; done
 fi
 [[ -f $ACTIVE_PALETTE ]] || die "No active palette. Run ./install.sh first."
 source "$ACTIVE_PALETTE"
+trap trace ERR
 if $HEAL; then heal; exit 0; fi
 
-current_step=setup
-trap 'warn "Installation stopped during $current_step. Backup: ${backup:-none}. Fix the error above, then rerun the same command."' ERR
-index=0
+# Each step runs in its own subshell, so a failure is traced and reported
+# but does not stop the independent steps after it.
+failed=() index=0
 for s in "${steps[@]}"; do
   if $NO_SUDO && [[ $ROOT_STEPS == *" $s "* ]]; then
     warn "Skipping '$s' (needs sudo)"; continue
   fi
-  current_step=$s
   index=$((index + 1))
   say "[$index/${#steps[@]}] $s"
-  "step_$s"
+  # The parent must not treat the subshell's exit as a new error, and the
+  # subshell must not run in a condition, which would disable set -e inside it.
+  trap - ERR; set +e
+  (set -e; trap trace ERR; "step_$s")
+  rc=$?
+  set -e; trap trace ERR
+  if ((rc)); then
+    failed+=("$s")
+    warn "Step '$s' failed (exit $rc); continuing with the remaining steps."
+    [[ $s != packages ]] || { warn "Every later step needs these packages; stopping."; break; }
+  fi
 done
+
+if ((${#failed[@]})); then
+  warn "Failed steps: ${failed[*]}. Backup: ${backup:-none}"
+  warn "Fix the first error above, then rerun: $REPO/install.sh --keep-palette --only $(IFS=,; echo "${failed[*]}")"
+  exit 1
+fi
 say "Done. Log out and back in to load the shell theme, extensions and Qt settings."
 say "After logging in, run: $REPO/install.sh --check"
