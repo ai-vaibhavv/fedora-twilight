@@ -93,9 +93,11 @@ installer again with `--auto-palette`.
 | `Super+M` | Notifications |
 | `Super+Ctrl+←/→` | Switch workspace (add `Shift` to move the window) |
 | `Super+Shift+C` | Caffeine |
+| `Super+Shift+←/→/↑/↓` | Move window to another monitor (GNOME default) |
 
 Change them in [`dconf/shortcuts.ini`](dconf/shortcuts.ini). Existing custom
-shortcuts on the same keys are kept.
+shortcuts on the same keys are kept. GNOME defaults are not set by the installer;
+change them in Settings → Keyboard → View and Customize Shortcuts.
 
 ## Supported apps
 
